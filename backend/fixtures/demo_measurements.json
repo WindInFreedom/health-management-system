@@ -1,0 +1,82 @@
+[
+  {
+    "model": "measurements.measurement",
+    "pk": 1,
+    "fields": {
+      "user": 1,
+      "measured_at": "2023-12-01T08:00:00Z",
+      "weight_kg": 75.5,
+      "systolic": 120,
+      "diastolic": 80,
+      "blood_glucose": 5.2,
+      "heart_rate": 72,
+      "notes": "早晨测量",
+      "created_at": "2023-12-01T08:00:00Z",
+      "updated_at": "2023-12-01T08:00:00Z"
+    }
+  },
+  {
+    "model": "measurements.measurement",
+    "pk": 2,
+    "fields": {
+      "user": 1,
+      "measured_at": "2023-12-02T08:00:00Z",
+      "weight_kg": 75.3,
+      "systolic": 118,
+      "diastolic": 78,
+      "blood_glucose": 5.1,
+      "heart_rate": 70,
+      "notes": "早晨测量",
+      "created_at": "2023-12-02T08:00:00Z",
+      "updated_at": "2023-12-02T08:00:00Z"
+    }
+  },
+  {
+    "model": "measurements.measurement",
+    "pk": 3,
+    "fields": {
+      "user": 2,
+      "measured_at": "2023-12-01T09:00:00Z",
+      "weight_kg": 68.2,
+      "systolic": 115,
+      "diastolic": 75,
+      "blood_glucose": 4.8,
+      "heart_rate": 68,
+      "notes": "早餐后测量",
+      "created_at": "2023-12-01T09:00:00Z",
+      "updated_at": "2023-12-01T09:00:00Z"
+    }
+  },
+  {
+    "model": "measurements.measurement",
+    "pk": 4,
+    "fields": {
+      "user": 2,
+      "measured_at": "2023-12-02T09:00:00Z",
+      "weight_kg": 68.0,
+      "systolic": 112,
+      "diastolic": 72,
+      "blood_glucose": 4.9,
+      "heart_rate": 65,
+      "notes": "早餐后测量",
+      "created_at": "2023-12-02T09:00:00Z",
+      "updated_at": "2023-12-02T09:00:00Z"
+    }
+  },
+  {
+    "model": "measurements.measurement",
+    "pk": 5,
+    "fields": {
+      "user": 1,
+      "measured_at": "2023-12-03T08:00:00Z",
+      "weight_kg": 75.0,
+      "systolic": 122,
+      "diastolic": 82,
+      "blood_glucose": 5.3,
+      "heart_rate": 74,
+      "notes": "早晨测量",
+      "created_at": "2023-12-03T08:00:00Z",
+      "updated_at": "2023-12-03T08:00:00Z"
+    }
+  }
+]
