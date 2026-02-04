@@ -39,6 +39,7 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '../stores/auth.js'
+import api from '../utils/axios.js'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -60,31 +61,26 @@ const handleLogin = async () => {
     if (!valid) return
     loading.value = true
     try {
-      const res = await fetch('http://127.0.0.1:8000/api/auth/login/', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({username: form.value.username, password: form.value.password})
+      const { data } = await api.post('/auth/login/', {
+        username: form.value.username,
+        password: form.value.password
       })
 
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        ElMessage.error(err.detail || err.error || '登录失败，请检查用户名或密码')
+      if (!data?.access) {
+        ElMessage.error('登录返回缺少 access token')
         loading.value = false
         return
       }
 
-      const data = await res.json()
       authStore.setToken(data.access)
+      if (data.refresh && authStore.setRefreshToken) {
+        authStore.setRefreshToken(data.refresh)
+      }
 
       // 获取用户信息（可选）
       try {
-        const userRes = await fetch('http://127.0.0.1:8000/api/users/me/', {
-          headers: {Authorization: `Bearer ${data.access}`}
-        })
-        if (userRes.ok) {
-          const userData = await userRes.json()
-          authStore.setUser(userData)
-        }
+        const userRes = await api.get('/users/me/')
+        authStore.setUser(userRes.data)
       } catch (e) {
         console.error('获取用户信息失败', e)
       }
@@ -93,7 +89,7 @@ const handleLogin = async () => {
       setTimeout(() => router.push('/dashboard'), 600)
     } catch (error) {
       console.error(error)
-      ElMessage.error('登录失败：' + (error.message || error))
+      ElMessage.error('登录失败：' + (error.response?.data?.detail || error.message || error))
     } finally {
       loading.value = false
     }

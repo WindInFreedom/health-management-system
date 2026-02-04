@@ -20,7 +20,8 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { useAuthStore } from '../stores/auth.js'
+import { useAuthStore } from '../../stores/auth.js'
+import api from '../../utils/axios.js'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -46,19 +47,8 @@ const logout = () => {
 
 const testAPI = async () => {
   try {
-    const response = await fetch('http://localhost:8000/api/measurements/', {
-      headers: {
-        'Authorization': `Bearer ${authStore.token}`,
-        'Content-Type': 'application/json'
-      }
-    })
-    
-    if (response.ok) {
-      const data = await response.json()
-      apiResult.value = `API调用成功!\n测量记录数量: ${Array.isArray(data) ? data.length : data.results?.length || 0}`
-    } else {
-      apiResult.value = `API调用失败: ${response.status} ${response.statusText}`
-    }
+    const { data } = await api.get('/measurements/')
+    apiResult.value = `API调用成功!\n测量记录数量: ${Array.isArray(data) ? data.length : data.results?.length || 0}`
   } catch (error) {
     apiResult.value = `API调用错误: ${error.message}`
   }

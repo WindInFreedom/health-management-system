@@ -33,6 +33,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth.js'
+import api from '../utils/axios.js'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -46,34 +47,31 @@ const handleLogin = async () => {
   loading.value = true
   message.value = ''
   try {
-    const res = await fetch('http://127.0.0.1:8000/api/auth/login/', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({username: username.value, password: password.value})
+    // 说明：路径相对于 baseURL（默认为 /api 或 .env 中的 VITE_API_BASE_URL）
+    // TODO：如果你的后端登录接口路径不同，请修改 '/auth/login/'
+    const { data } = await api.post('/auth/login/', {
+      username: username.value,
+      password: password.value
     })
 
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}))
-      message.value = err.detail || err.error || '登录失败，请检查用户名或密码'
+    if (!data?.access) {
+      message.value = '登录返回缺少 access token'
       loading.value = false
       return
     }
 
-    const data = await res.json()
+    // 保存 token
     authStore.setToken(data.access)
+    // 如后端返回 refresh token，也一并保存
+    if (data.refresh && authStore.setRefreshToken) {
+      authStore.setRefreshToken(data.refresh)
+    }
 
     // 获取用户信息（若后端提供）
     try {
-      const userRes = await fetch('http://127.0.0.1:8000/api/users/me/', {
-        headers: {
-          Authorization: `Bearer ${data.access}`,
-          'Content-Type': 'application/json'
-        }
-      })
-      if (userRes.ok) {
-        const userData = await userRes.json()
-        authStore.setUser(userData)
-      }
+      // TODO：根据你的后端实际用户信息接口调整路径
+      const userRes = await api.get('/users/me/')
+      authStore.setUser(userRes.data)
     } catch (e) {
       console.error('获取用户信息失败：', e)
     }
@@ -82,7 +80,7 @@ const handleLogin = async () => {
     setTimeout(() => router.push('/dashboard'), 600)
   } catch (error) {
     console.error(error)
-    message.value = '登录失败：' + (error.message || error)
+    message.value = '登录失败：' + (error.response?.data?.detail || error.message || error)
   } finally {
     loading.value = false
   }

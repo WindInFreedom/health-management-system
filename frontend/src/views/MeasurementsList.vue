@@ -25,7 +25,7 @@
 import * as echarts from 'echarts'
 import { ElMessage } from 'element-plus'
 
-import api from '../utils/api'
+import api from '../utils/axios.js'
 export default {
   name: 'MeasurementsList',
   data() {
@@ -44,7 +44,7 @@ export default {
     async loadMeasurements() {
       try {
         // ordering=measured_at (后端 MeasurementViewSet 支持 ordering)
-        const resp = await api.get('/api/measurements/', { params: { ordering: 'measured_at' } })
+        const resp = await api.get('/measurements/', { params: { ordering: 'measured_at' } })
         // DRF 默认 list 返回的是数组
         this.measurements = resp.data
         this.renderChart()
@@ -90,7 +90,7 @@ export default {
     },
     async remove(id) {
       try {
-        await api.delete(`/api/measurements/${id}/`)
+        await api.delete(`/measurements/${id}/`)
         ElMessage.success('删除成功')
         this.loadMeasurements()
       } catch (err) {
