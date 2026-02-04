@@ -1,13 +1,11 @@
-"""
-URL configuration for users app
-替换本地内容：扩展URL以支持档案管理和头像上传
-"""
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
     UserListCreateView, UserDetailView, 
     ProfileListCreateView, ProfileDetailView,
     current_user, login_view, register_view,
+    change_password, my_profile,
+    MedicationRecordViewSet, SleepLogViewSet, MoodLogViewSet,
 )
 from . import management_views, profile_views
 
@@ -15,25 +13,33 @@ from . import management_views, profile_views
 router = DefaultRouter()
 router.register(r'profiles-extended', profile_views.ProfileViewSet, basename='profile-extended')
 
+# Create router for ViewSets
+router = DefaultRouter()
+router.register(r'medications', MedicationRecordViewSet, basename='medication')
+router.register(r'sleep-logs', SleepLogViewSet, basename='sleep-log')
+router.register(r'mood-logs', MoodLogViewSet, basename='mood-log')
+
 urlpatterns = [
-    path('login/', login_view, name='login'),
+    # Authentication endpoints
+    path('auth/login/', login_view, name='auth-login'),
+    path('auth/register/', register_view, name='auth-register'),
+    path('auth/change-password/', change_password, name='change-password'),
+    
+    # User endpoints
     path('users/', UserListCreateView.as_view(), name='user-list-create'),
     path('users/<int:pk>/', UserDetailView.as_view(), name='user-detail'),
-    path('profiles/', ProfileListCreateView.as_view(), name='profile-list-create'),
-    path('profiles/<int:pk>/', ProfileDetailView.as_view(), name='profile-detail'),
-    path('me/', current_user, name='current-user'),
-
-    path('auth/register/', register_view, name='auth-register'),
-    path('auth/login/', login_view, name='auth-login'),
     path('users/me/', current_user, name='current-user'),
     
-    # 替换本地内容：新增用户管理端点
-    path('user-profile/me/', profile_views.user_profile, name='user-profile-me'),
-    path('user-profile/<int:user_id>/', profile_views.user_profile, name='user-profile'),
-    path('change-password/', profile_views.change_password, name='change-password'),
-    path('upload-avatar/', profile_views.upload_avatar, name='upload-avatar'),
+    # Profile endpoints
+    path('profiles/', ProfileListCreateView.as_view(), name='profile-list-create'),
+    path('profiles/<int:pk>/', ProfileDetailView.as_view(), name='profile-detail'),
+    path('profile/me/', my_profile, name='my-profile'),
     
-    # 用户管理功能
+    # Legacy endpoints (keeping for compatibility)
+    path('login/', login_view, name='login'),
+    path('me/', current_user, name='current-user-alt'),
+    
+    # User management endpoints (admin/doctor)
     path('management/users/', management_views.UserManagementListView.as_view(), name='user-management-list'),
     path('management/users/<int:pk>/', management_views.UserManagementDetailView.as_view(), name='user-management-detail'),
     path('management/statistics/', management_views.user_statistics, name='user-statistics'),
@@ -41,6 +47,6 @@ urlpatterns = [
     path('management/create-doctor/', management_views.create_doctor_user, name='create-doctor'),
     path('management/user/<int:user_id>/health-summary/', management_views.get_user_health_summary, name='user-health-summary'),
     
-    # ViewSet路由
+    # Include router URLs for tracking features
     path('', include(router.urls)),
 ]

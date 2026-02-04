@@ -542,3 +542,108 @@ class MeasurementViewSet(viewsets.ModelViewSet):
             'date_range': {'start': start, 'end': end},
             'statistics': stats
         }, status=status.HTTP_200_OK)
+
+
+# ==================== New Health Report & Forecasting Endpoints ====================
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def health_report(request):
+    """
+    GET /api/health-report/
+    Generate comprehensive health report with scoring for current user.
+    Query params:
+    - days: Number of days to consider (default: 30)
+    """
+    from .health_scoring import HealthScoringService
+    
+    days = int(request.GET.get('days', 30))
+    
+    try:
+        scoring_service = HealthScoringService(request.user.id, days=days)
+        report = scoring_service.calculate_overall_score()
+        
+        # Add user info
+        report['user'] = {
+            'id': request.user.id,
+            'username': request.user.username,
+            'email': request.user.email,
+        }
+        
+        return Response(report, status=status.HTTP_200_OK)
+    except User.DoesNotExist:
+        return Response({'error': '用户不存在'}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({'error': f'生成报告失败: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def health_report_for_user(request, user_id):
+    """
+    GET /api/health-report/{user_id}/
+    Generate health report for specific user (admin/doctor only).
+    Query params:
+    - days: Number of days to consider (default: 30)
+    """
+    from .health_scoring import HealthScoringService
+    
+    # Check permissions
+    if not (request.user.is_admin_user or request.user.is_doctor_user):
+        return Response({'error': '权限不足'}, status=status.HTTP_403_FORBIDDEN)
+    
+    days = int(request.GET.get('days', 30))
+    
+    try:
+        target_user = User.objects.get(id=user_id)
+        scoring_service = HealthScoringService(user_id, days=days)
+        report = scoring_service.calculate_overall_score()
+        
+        # Add user info
+        report['user'] = {
+            'id': target_user.id,
+            'username': target_user.username,
+            'email': target_user.email,
+        }
+        
+        return Response(report, status=status.HTTP_200_OK)
+    except User.DoesNotExist:
+        return Response({'error': '用户不存在'}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({'error': f'生成报告失败: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def forecast_health_metric(request):
+    """
+    GET /api/forecast/
+    Forecast a health metric for current user.
+    Query params:
+    - metric: Metric to forecast ('systolic', 'diastolic', 'heart_rate', 'blood_glucose', 'weight_kg')
+    - horizon: Days to forecast (default: 30, max: 90)
+    """
+    from .forecasting import forecast_metric
+    
+    metric = request.GET.get('metric')
+    horizon = int(request.GET.get('horizon', 30))
+    
+    if not metric:
+        return Response({'error': 'metric参数是必需的'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    valid_metrics = ['systolic', 'diastolic', 'heart_rate', 'blood_glucose', 'weight_kg']
+    if metric not in valid_metrics:
+        return Response({
+            'error': f'无效的metric。有效选项: {", ".join(valid_metrics)}'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    if horizon < 1 or horizon > 90:
+        return Response({'error': 'horizon必须在1-90之间'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        forecast = forecast_metric(request.user.id, metric, horizon)
+        return Response(forecast, status=status.HTTP_200_OK)
+    except ValueError as e:
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        return Response({'error': f'预测失败: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

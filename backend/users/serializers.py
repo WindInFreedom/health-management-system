@@ -1,116 +1,106 @@
-# 替换本地内容：完整的用户和档案序列化器
 from rest_framework import serializers
-from django.contrib.auth.password_validation import validate_password
-from .models import User, Profile
+from django.contrib.auth import get_user_model
+from .models import Profile, MedicationRecord, SleepLog, MoodLog
 
-
-class ProfileSerializer(serializers.ModelSerializer):
-    """
-    用户档案序列化器
-    替换本地内容：支持完整的个人基本档案字段
-    """
-    class Meta:
-        model = Profile
-        fields = [
-            'id', 'user', 'bio', 'location', 'birth_date',
-            'age', 'gender', 'blood_type', 'height', 'weight_baseline',
-            'created_at', 'updated_at'
-        ]
-        read_only_fields = ['user', 'created_at', 'updated_at']
-    
-    def validate_age(self, value):
-        """验证年龄范围"""
-        if value and (value < 0 or value > 150):
-            raise serializers.ValidationError("年龄必须在0-150之间")
-        return value
-    
-    def validate_height(self, value):
-        """验证身高范围"""
-        if value and (value < 50 or value > 250):
-            raise serializers.ValidationError("身高必须在50-250cm之间")
-        return value
-    
-    def validate_weight_baseline(self, value):
-        """验证体重范围"""
-        if value and (value < 20 or value > 300):
-            raise serializers.ValidationError("体重必须在20-300kg之间")
-        return value
+User = get_user_model()
 
 
 class UserSerializer(serializers.ModelSerializer):
-    """
-    用户序列化器
-    替换本地内容：支持头像URL和档案信息
-    """
-    profile = ProfileSerializer(read_only=True)
+    avatar_url = serializers.SerializerMethodField()
     
     class Meta:
         model = User
-        fields = [
-            'id', 'username', 'email', 'first_name', 'last_name',
-            'date_of_birth', 'phone', 'role', 'is_doctor', 'department',
-            'avatar_url', 'profile', 'date_joined'
-        ]
-        read_only_fields = ['id', 'date_joined']
+        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'date_of_birth', 
+                  'phone', 'role', 'avatar', 'avatar_url']
+        read_only_fields = ['id']
+        extra_kwargs = {'password': {'write_only': True}}
     
-    def validate_username(self, value):
-        """验证用户名唯一性"""
-        if self.instance:
-            # 更新时排除自己
-            if User.objects.exclude(pk=self.instance.pk).filter(username=value).exists():
-                raise serializers.ValidationError("该用户名已被使用")
-        else:
-            if User.objects.filter(username=value).exists():
-                raise serializers.ValidationError("该用户名已被使用")
-        return value
+    def get_avatar_url(self, obj):
+        if obj.avatar:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.avatar.url)
+            return obj.avatar.url
+        return None
 
+
+class ProfileSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
+    
+    class Meta:
+        model = Profile
+        fields = ['id', 'user', 'bio', 'location', 'birth_date', 'age', 'gender', 
+                  'blood_type', 'height_cm', 'weight_baseline_kg', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+
+class MedicationRecordSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MedicationRecord
+        fields = ['id', 'user', 'medication_name', 'dosage', 'frequency', 
+                  'start_date', 'end_date', 'notes', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'user', 'created_at', 'updated_at']
+
+
+class SleepLogSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SleepLog
+        fields = ['id', 'user', 'sleep_date', 'start_time', 'end_time', 
+                  'duration_minutes', 'quality_rating', 'notes', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'user', 'duration_minutes', 'created_at', 'updated_at']
+
+
+class MoodLogSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MoodLog
+        fields = ['id', 'user', 'log_date', 'mood_rating', 'notes', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'user', 'created_at', 'updated_at']
+
+
+class ChangePasswordSerializer(serializers.Serializer):
+    old_password = serializers.CharField(required=True, write_only=True)
+    new_password = serializers.CharField(required=True, write_only=True, min_length=8)
+    confirm_password = serializers.CharField(required=True, write_only=True)
+    
+    def validate(self, attrs):
+        if attrs['new_password'] != attrs['confirm_password']:
+            raise serializers.ValidationError({"confirm_password": "两次输入的新密码不一致"})
+        return attrs
+
+
+# ---------- Existing RegistrationSerializer ----------
+from rest_framework import serializers
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
 
 class RegistrationSerializer(serializers.ModelSerializer):
-    """用户注册序列化器"""
-    password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
-    password2 = serializers.CharField(write_only=True, required=True)
+    password = serializers.CharField(write_only=True, required=True, min_length=8)
+    password2 = serializers.CharField(write_only=True, required=True, min_length=8)
 
     class Meta:
         model = User
-        fields = ['username', 'password', 'password2', 'email', 'first_name', 'last_name', 'role', 'department']
+        fields = ('username', 'email', 'first_name', 'last_name', 'password', 'password2', 'role', 'department')
         extra_kwargs = {
             'role': {'required': False},
             'department': {'required': False},
         }
 
     def validate(self, attrs):
-        if attrs['password'] != attrs['password2']:
-            raise serializers.ValidationError({"password": "两次密码不一致"})
+        if attrs.get('password') != attrs.get('password2'):
+            raise serializers.ValidationError({"password": "两次输入的密码不一致"})
         return attrs
 
     def create(self, validated_data):
-        validated_data.pop('password2')
+        validated_data.pop('password2', None)
         password = validated_data.pop('password')
+        # 默认角色为普通用户，除非显式指定
         validated_data.setdefault('role', 'user')
         user = User(**validated_data)
         user.set_password(password)
         user.save()
-        # 自动创建档案
-        Profile.objects.create(user=user)
+        # 如果项目使用 Profile，可在这里创建默认 Profile（可选）
+        # from .models import Profile
+        # Profile.objects.create(user=user)
         return user
-
-
-class ChangePasswordSerializer(serializers.Serializer):
-    """
-    修改密码序列化器
-    替换本地内容：支持密码修改功能
-    """
-    old_password = serializers.CharField(required=True, write_only=True)
-    new_password = serializers.CharField(required=True, write_only=True, validators=[validate_password])
-    new_password2 = serializers.CharField(required=True, write_only=True)
-    
-    def validate(self, attrs):
-        if attrs['new_password'] != attrs['new_password2']:
-            raise serializers.ValidationError({"new_password": "两次密码不一致"})
-        return attrs
-    
-    def validate_old_password(self, value):
-        user = self.context['request'].user
-        if not user.check_password(value):
-            raise serializers.ValidationError("原密码不正确")
-        return value
+# --------------------------------------------------

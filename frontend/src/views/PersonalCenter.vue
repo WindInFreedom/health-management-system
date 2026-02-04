@@ -1,367 +1,352 @@
-<!-- 替换本地内容：个人中心页面 - 用户信息编辑和密码修改 -->
 <template>
-  <div class="personal-center">
-    <el-card class="center-card">
+  <div class="personal-center-container">
+    <el-card class="main-card" shadow="hover">
       <template #header>
-        <h2>个人中心</h2>
+        <div class="card-header">
+          <h2 class="page-title">个人中心</h2>
+        </div>
       </template>
 
-      <el-tabs v-model="activeTab" class="center-tabs">
-        <!-- 基本信息 -->
-        <el-tab-pane label="基本信息" name="info">
-          <el-form
-            ref="infoFormRef"
-            :model="userForm"
-            :rules="infoRules"
-            label-width="120px"
-            class="info-form"
+      <div class="profile-content">
+        <!-- Avatar Section -->
+        <div class="avatar-section">
+          <el-upload
+            class="avatar-uploader"
+            :action="uploadUrl"
+            :headers="uploadHeaders"
+            :show-file-list="false"
+            :on-success="handleAvatarSuccess"
+            :before-upload="beforeAvatarUpload"
+            :disabled="loading"
           >
-            <el-form-item label="用户名" prop="username">
-              <el-input v-model="userForm.username" placeholder="请输入用户名" />
-            </el-form-item>
+            <img v-if="userInfo.avatar" :src="userInfo.avatar" class="avatar" />
+            <el-icon v-else class="avatar-uploader-icon"><Plus /></el-icon>
+          </el-upload>
+          <p class="avatar-tip">点击上传头像</p>
+        </div>
 
-            <el-form-item label="邮箱" prop="email">
-              <el-input v-model="userForm.email" placeholder="请输入邮箱" />
-            </el-form-item>
+        <!-- User Info Form -->
+        <el-form
+          ref="userFormRef"
+          :model="userForm"
+          :rules="userRules"
+          label-width="100px"
+          class="user-form"
+        >
+          <el-form-item label="用户名" prop="username">
+            <el-input v-model="userForm.username" placeholder="请输入用户名" />
+          </el-form-item>
 
-            <el-form-item label="姓名">
-              <el-input v-model="userForm.first_name" placeholder="名" style="width: 48%" />
-              <el-input
-                v-model="userForm.last_name"
-                placeholder="姓"
-                style="width: 48%; margin-left: 4%"
-              />
-            </el-form-item>
+          <el-form-item>
+            <el-button type="primary" @click="updateUserInfo" :loading="loading">
+              更新信息
+            </el-button>
+          </el-form-item>
+        </el-form>
 
-            <el-form-item label="手机号">
-              <el-input v-model="userForm.phone" placeholder="请输入手机号" />
-            </el-form-item>
+        <!-- Change Password Form -->
+        <el-divider />
+        <h3 class="section-title">修改密码</h3>
+        <el-form
+          ref="passwordFormRef"
+          :model="passwordForm"
+          :rules="passwordRules"
+          label-width="100px"
+          class="password-form"
+        >
+          <el-form-item label="旧密码" prop="old_password">
+            <el-input
+              v-model="passwordForm.old_password"
+              type="password"
+              placeholder="请输入旧密码"
+              show-password
+            />
+          </el-form-item>
 
-            <el-form-item>
-              <el-button type="primary" @click="handleUpdateInfo" :loading="updating">
-                保存信息
-              </el-button>
-              <el-button @click="loadUserInfo">取消</el-button>
-            </el-form-item>
-          </el-form>
-        </el-tab-pane>
+          <el-form-item label="新密码" prop="new_password">
+            <el-input
+              v-model="passwordForm.new_password"
+              type="password"
+              placeholder="请输入新密码"
+              show-password
+            />
+          </el-form-item>
 
-        <!-- 头像设置 -->
-        <el-tab-pane label="头像设置" name="avatar">
-          <div class="avatar-section">
-            <div class="current-avatar">
-              <h3>当前头像</h3>
-              <el-avatar :src="userForm.avatar_url" :size="120">
-                <el-icon><User /></el-icon>
-              </el-avatar>
-            </div>
+          <el-form-item label="确认密码" prop="confirm_password">
+            <el-input
+              v-model="passwordForm.confirm_password"
+              type="password"
+              placeholder="请再次输入新密码"
+              show-password
+            />
+          </el-form-item>
 
-            <el-upload
-              class="avatar-uploader"
-              :action="uploadUrl"
-              :headers="uploadHeaders"
-              :show-file-list="false"
-              :before-upload="beforeAvatarUpload"
-              :on-success="handleAvatarSuccess"
-              :on-error="handleAvatarError"
-            >
-              <el-button type="primary" :icon="Upload">上传新头像</el-button>
-              <template #tip>
-                <div class="upload-tip">
-                  只能上传 jpg/png/gif 文件，且不超过 5MB
-                </div>
-              </template>
-            </el-upload>
-          </div>
-        </el-tab-pane>
-
-        <!-- 密码修改 -->
-        <el-tab-pane label="修改密码" name="password">
-          <el-form
-            ref="passwordFormRef"
-            :model="passwordForm"
-            :rules="passwordRules"
-            label-width="120px"
-            class="password-form"
-          >
-            <el-form-item label="原密码" prop="old_password">
-              <el-input
-                v-model="passwordForm.old_password"
-                type="password"
-                placeholder="请输入原密码"
-                show-password
-              />
-            </el-form-item>
-
-            <el-form-item label="新密码" prop="new_password">
-              <el-input
-                v-model="passwordForm.new_password"
-                type="password"
-                placeholder="请输入新密码"
-                show-password
-              />
-            </el-form-item>
-
-            <el-form-item label="确认新密码" prop="new_password2">
-              <el-input
-                v-model="passwordForm.new_password2"
-                type="password"
-                placeholder="请再次输入新密码"
-                show-password
-              />
-            </el-form-item>
-
-            <el-form-item>
-              <el-button type="primary" @click="handleChangePassword" :loading="changingPassword">
-                修改密码
-              </el-button>
-              <el-button @click="resetPasswordForm">重置</el-button>
-            </el-form-item>
-          </el-form>
-        </el-tab-pane>
-      </el-tabs>
+          <el-form-item>
+            <el-button type="warning" @click="changePassword" :loading="loading">
+              修改密码
+            </el-button>
+          </el-form-item>
+        </el-form>
+      </div>
     </el-card>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { User, Upload } from '@element-plus/icons-vue'
-import { useAuthStore } from '../stores/auth'
-import api from '../utils/axios'
+import { Plus } from '@element-plus/icons-vue'
+import api from '../utils/axios.js'
+import { useAuthStore } from '../stores/auth.js'
 
 const authStore = useAuthStore()
-const activeTab = ref('info')
-
-// 表单refs
-const infoFormRef = ref(null)
+const loading = ref(false)
+const userFormRef = ref(null)
 const passwordFormRef = ref(null)
 
-// 用户信息表单
-const userForm = reactive({
-  username: '',
-  email: '',
-  first_name: '',
-  last_name: '',
-  phone: '',
-  avatar_url: ''
+const userInfo = reactive({
+  avatar: '',
+  username: ''
 })
 
-// 密码修改表单
+const userForm = reactive({
+  username: ''
+})
+
 const passwordForm = reactive({
   old_password: '',
   new_password: '',
-  new_password2: ''
+  confirm_password: ''
 })
 
-// 状态
-const updating = ref(false)
-const changingPassword = ref(false)
-
-// 上传配置
-const uploadUrl = computed(() => `${api.defaults.baseURL}/auth/upload-avatar/`)
-const uploadHeaders = computed(() => ({
+const uploadUrl = ref((import.meta.env.VITE_API_BASE_URL || '/api') + '/users/me/avatar/')
+const uploadHeaders = ref({
   Authorization: `Bearer ${authStore.token}`
-}))
+})
 
-// 表单验证规则
-const infoRules = {
+const validateConfirmPassword = (rule, value, callback) => {
+  if (value === '') {
+    callback(new Error('请再次输入新密码'))
+  } else if (value !== passwordForm.new_password) {
+    callback(new Error('两次输入的密码不一致'))
+  } else {
+    callback()
+  }
+}
+
+const userRules = {
   username: [
     { required: true, message: '请输入用户名', trigger: 'blur' },
-    { min: 3, max: 20, message: '用户名长度在 3 到 20 个字符', trigger: 'blur' }
-  ],
-  email: [
-    { required: true, message: '请输入邮箱', trigger: 'blur' },
-    { type: 'email', message: '请输入正确的邮箱地址', trigger: 'blur' }
+    { min: 3, max: 30, message: '用户名长度为 3-30 个字符', trigger: 'blur' }
   ]
 }
 
 const passwordRules = {
-  old_password: [{ required: true, message: '请输入原密码', trigger: 'blur' }],
+  old_password: [
+    { required: true, message: '请输入旧密码', trigger: 'blur' }
+  ],
   new_password: [
     { required: true, message: '请输入新密码', trigger: 'blur' },
-    { min: 8, message: '密码长度不能少于 8 个字符', trigger: 'blur' }
+    { min: 8, message: '密码长度至少为 8 个字符', trigger: 'blur' }
   ],
-  new_password2: [
+  confirm_password: [
     { required: true, message: '请再次输入新密码', trigger: 'blur' },
-    {
-      validator: (rule, value, callback) => {
-        if (value !== passwordForm.new_password) {
-          callback(new Error('两次输入的密码不一致'))
-        } else {
-          callback()
-        }
-      },
-      trigger: 'blur'
-    }
+    { validator: validateConfirmPassword, trigger: 'blur' }
   ]
 }
 
-// 加载用户信息
-const loadUserInfo = async () => {
+const fetchUserInfo = async () => {
   try {
-    const response = await api.get('/auth/user-profile/me/')
-    Object.assign(userForm, response.data)
+    loading.value = true
+    const { data } = await api.get('/users/me/')
+    userInfo.avatar = data.avatar
+    userInfo.username = data.username
+    userForm.username = data.username
   } catch (error) {
-    ElMessage.error('加载用户信息失败')
-    console.error('Load user info error:', error)
+    ElMessage.error('获取用户信息失败: ' + (error.response?.data?.detail || error.message))
+  } finally {
+    loading.value = false
   }
 }
 
-// 更新用户信息
-const handleUpdateInfo = async () => {
-  if (!infoFormRef.value) return
-
-  await infoFormRef.value.validate(async (valid) => {
-    if (valid) {
-      updating.value = true
-      try {
-        const response = await api.put('/auth/user-profile/me/', userForm)
-        Object.assign(userForm, response.data)
-        authStore.user = response.data
-        ElMessage.success('信息更新成功')
-      } catch (error) {
-        ElMessage.error(error.response?.data?.error || '更新失败')
-      } finally {
-        updating.value = false
-      }
+const updateUserInfo = async () => {
+  try {
+    await userFormRef.value.validate()
+    loading.value = true
+    await api.patch('/users/me/', {
+      username: userForm.username
+    })
+    userInfo.username = userForm.username
+    ElMessage.success('用户信息更新成功')
+  } catch (error) {
+    if (error.response) {
+      ElMessage.error('更新失败: ' + (error.response?.data?.detail || error.message))
     }
-  })
-}
-
-// 修改密码
-const handleChangePassword = async () => {
-  if (!passwordFormRef.value) return
-
-  await passwordFormRef.value.validate(async (valid) => {
-    if (valid) {
-      changingPassword.value = true
-      try {
-        await api.post('/auth/change-password/', passwordForm)
-        ElMessage.success('密码修改成功，请重新登录')
-        resetPasswordForm()
-        // 可以选择自动登出
-        setTimeout(() => {
-          authStore.logout()
-          window.location.href = '/'
-        }, 2000)
-      } catch (error) {
-        ElMessage.error(error.response?.data?.error || '修改失败')
-      } finally {
-        changingPassword.value = false
-      }
-    }
-  })
-}
-
-// 重置密码表单
-const resetPasswordForm = () => {
-  passwordForm.old_password = ''
-  passwordForm.new_password = ''
-  passwordForm.new_password2 = ''
-  if (passwordFormRef.value) {
-    passwordFormRef.value.clearValidate()
+  } finally {
+    loading.value = false
   }
 }
 
-// 头像上传前验证
+const changePassword = async () => {
+  try {
+    await passwordFormRef.value.validate()
+    loading.value = true
+    await api.post('/auth/change-password/', {
+      old_password: passwordForm.old_password,
+      new_password: passwordForm.new_password
+    })
+    ElMessage.success('密码修改成功，请重新登录')
+    passwordForm.old_password = ''
+    passwordForm.new_password = ''
+    passwordForm.confirm_password = ''
+    passwordFormRef.value.resetFields()
+    
+    setTimeout(() => {
+      authStore.clearToken()
+      window.location.href = '/'
+    }, 1500)
+  } catch (error) {
+    ElMessage.error('修改密码失败: ' + (error.response?.data?.detail || error.message))
+  } finally {
+    loading.value = false
+  }
+}
+
+const handleAvatarSuccess = (response) => {
+  userInfo.avatar = response.avatar
+  ElMessage.success('头像上传成功')
+}
+
 const beforeAvatarUpload = (file) => {
-  const isImage = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(file.type)
-  const isLt5M = file.size / 1024 / 1024 < 5
+  const isImage = file.type.startsWith('image/')
+  const isLt2M = file.size / 1024 / 1024 < 2
 
   if (!isImage) {
-    ElMessage.error('只能上传图片文件！')
+    ElMessage.error('只能上传图片文件!')
     return false
   }
-  if (!isLt5M) {
-    ElMessage.error('图片大小不能超过 5MB！')
+  if (!isLt2M) {
+    ElMessage.error('图片大小不能超过 2MB!')
     return false
   }
   return true
 }
 
-// 头像上传成功
-const handleAvatarSuccess = (response) => {
-  userForm.avatar_url = response.avatar_url
-  authStore.user.avatar_url = response.avatar_url
-  ElMessage.success('头像上传成功')
-}
-
-// 头像上传失败
-const handleAvatarError = (error) => {
-  ElMessage.error('头像上传失败')
-  console.error('Upload error:', error)
-}
-
 onMounted(() => {
-  loadUserInfo()
+  fetchUserInfo()
 })
 </script>
 
 <style scoped>
-.personal-center {
-  padding: 24px;
+.personal-center-container {
+  padding: 20px;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.main-card {
   max-width: 800px;
   margin: 0 auto;
+  border-radius: 15px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
 }
 
-.center-card {
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
-.center-card :deep(.el-card__header) h2 {
+.page-title {
   margin: 0;
-  font-size: 20px;
-  font-weight: 600;
+  font-size: 24px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
-.center-tabs {
-  margin-top: 20px;
-}
-
-.info-form,
-.password-form {
-  max-width: 500px;
-  margin-top: 20px;
+.profile-content {
+  padding: 20px 0;
 }
 
 .avatar-section {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 24px;
-  padding: 20px;
-}
-
-.current-avatar {
   text-align: center;
-}
-
-.current-avatar h3 {
-  margin: 0 0 16px 0;
-  font-size: 16px;
-  color: #606266;
+  margin-bottom: 30px;
 }
 
 .avatar-uploader {
-  text-align: center;
+  display: inline-block;
 }
 
-.upload-tip {
-  color: #909399;
-  font-size: 12px;
-  margin-top: 8px;
+.avatar-uploader :deep(.el-upload) {
+  border: 2px dashed #d9d9d9;
+  border-radius: 50%;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s;
+  width: 120px;
+  height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatar-uploader :deep(.el-upload:hover) {
+  border-color: #667eea;
+}
+
+.avatar {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.avatar-uploader-icon {
+  font-size: 40px;
+  color: #8c939d;
+}
+
+.avatar-tip {
+  margin-top: 10px;
+  color: #999;
+  font-size: 14px;
+}
+
+.user-form,
+.password-form {
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.section-title {
+  font-size: 18px;
+  margin: 20px 0;
+  color: #333;
+}
+
+:deep(.el-divider) {
+  margin: 30px 0;
 }
 
 @media (max-width: 768px) {
-  .personal-center {
-    padding: 16px;
+  .personal-center-container {
+    padding: 10px;
   }
 
-  .info-form,
+  .main-card {
+    margin: 10px;
+  }
+
+  .user-form,
   .password-form {
     max-width: 100%;
+  }
+
+  :deep(.el-form-item__label) {
+    width: 80px !important;
   }
 }
 </style>
