@@ -28,8 +28,16 @@
             :empty-text="'暂无数据'"
           >
             <el-table-column prop="sleep_date" label="日期" min-width="110" />
-            <el-table-column prop="start_time" label="入睡时间" min-width="100" />
-            <el-table-column prop="end_time" label="起床时间" min-width="100" />
+            <el-table-column label="入睡时间" min-width="100">
+              <template #default="{ row }">
+                {{ row.start_time ? row.start_time.substring(11, 16) : '-' }}
+              </template>
+            </el-table-column>
+            <el-table-column label="起床时间" min-width="100">
+              <template #default="{ row }">
+                {{ row.end_time ? row.end_time.substring(11, 16) : '-' }}
+              </template>
+            </el-table-column>
             <el-table-column label="睡眠时长" min-width="100">
               <template #default="{ row }">
                 {{ calculateDuration(row.start_time, row.end_time) }}
@@ -83,8 +91,8 @@
           <el-time-picker
             v-model="form.start_time"
             placeholder="选择入睡时间"
-            format="HH:mm:ss"
-            value-format="HH:mm:ss"
+            format="HH:mm"
+            value-format="HH:mm"
             style="width: 100%"
           />
         </el-form-item>
@@ -93,8 +101,8 @@
           <el-time-picker
             v-model="form.end_time"
             placeholder="选择起床时间"
-            format="HH:mm:ss"
-            value-format="HH:mm:ss"
+            format="HH:mm"
+            value-format="HH:mm"
             style="width: 100%"
           />
         </el-form-item>
@@ -174,13 +182,8 @@ const rules = {
 const calculateDuration = (startTime, endTime) => {
   if (!startTime || !endTime) return '-'
   
-  const start = new Date(`2000-01-01 ${startTime}`)
-  let end = new Date(`2000-01-01 ${endTime}`)
-  
-  // If end time is earlier than start time, assume it's the next day
-  if (end < start) {
-    end = new Date(`2000-01-02 ${endTime}`)
-  }
+  const start = new Date(startTime)
+  const end = new Date(endTime)
   
   const diff = (end - start) / 1000 / 60 / 60 // hours
   const hours = Math.floor(diff)
@@ -220,11 +223,8 @@ const renderChart = () => {
 
   const dates = sortedData.map(item => item.sleep_date)
   const durations = sortedData.map(item => {
-    const start = new Date(`2000-01-01 ${item.start_time}`)
-    let end = new Date(`2000-01-01 ${item.end_time}`)
-    if (end < start) {
-      end = new Date(`2000-01-02 ${item.end_time}`)
-    }
+    const start = new Date(item.start_time)
+    const end = new Date(item.end_time)
     return ((end - start) / 1000 / 60 / 60).toFixed(1) // hours
   })
 
@@ -296,8 +296,9 @@ const showEditDialog = (row) => {
   dialogMode.value = 'edit'
   currentId.value = row.id
   form.sleep_date = row.sleep_date
-  form.start_time = row.start_time
-  form.end_time = row.end_time
+  // Extract time from datetime (format: "HH:mm")
+  form.start_time = row.start_time ? row.start_time.substring(11, 16) : ''
+  form.end_time = row.end_time ? row.end_time.substring(11, 16) : ''
   form.quality_rating = row.quality_rating
   form.notes = row.notes
   dialogVisible.value = true
@@ -318,10 +319,22 @@ const submitForm = async () => {
     await formRef.value.validate()
     submitting.value = true
 
+    // Combine date with time to create datetime strings
+    const startDateTime = `${form.sleep_date}T${form.start_time}:00`
+    let endDateTime = `${form.sleep_date}T${form.end_time}:00`
+    
+    // If end time is earlier than start time, assume it's the next day
+    if (form.end_time < form.start_time) {
+      const nextDate = new Date(form.sleep_date)
+      nextDate.setDate(nextDate.getDate() + 1)
+      const nextDateStr = nextDate.toISOString().split('T')[0]
+      endDateTime = `${nextDateStr}T${form.end_time}:00`
+    }
+
     const sleepData = {
       sleep_date: form.sleep_date,
-      start_time: form.start_time,
-      end_time: form.end_time,
+      start_time: startDateTime,
+      end_time: endDateTime,
       quality_rating: form.quality_rating,
       notes: form.notes
     }
