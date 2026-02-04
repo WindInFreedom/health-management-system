@@ -5,7 +5,7 @@ This document provides examples of how to use the forecasting service
 in the health management system.
 
 Author: Health Management System Team
-Created: 2024
+Created: January 2024
 """
 
 # Example 1: Basic Forecasting
