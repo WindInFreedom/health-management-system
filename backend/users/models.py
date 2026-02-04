@@ -3,6 +3,7 @@ from django.db import models
 
 
 class User(AbstractUser):
+    # 替换本地内容：扩展User模型以支持头像存储
     ROLE_CHOICES = [
         ('admin', '管理员'),
         ('doctor', '医生'),
@@ -57,6 +58,8 @@ class Profile(models.Model):
     ]
     
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+    
+    # Original fields
     bio = models.TextField(max_length=500, blank=True)
     location = models.CharField(max_length=30, blank=True)
     birth_date = models.DateField(null=True, blank=True)

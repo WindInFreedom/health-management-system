@@ -16,6 +16,8 @@ from .views import (
 )
 from . import collaborative_views
 from . import admin_views
+# 替换本地内容：导入扩展的健康视图
+from . import health_views
 
 from rest_framework.routers import DefaultRouter
 from .views import MeasurementViewSet
@@ -23,6 +25,10 @@ from .views import MeasurementViewSet
 # 使用 DefaultRouter 注册 viewset（如果你想使用 viewset 的自动路由）
 router = DefaultRouter()
 router.register(r'measurements', MeasurementViewSet, basename='measurement')
+# 替换本地内容：注册扩展的健康数据ViewSet
+router.register(r'medications', health_views.MedicationRecordViewSet, basename='medication')
+router.register(r'sleep-logs', health_views.SleepLogViewSet, basename='sleep-log')
+router.register(r'mood-logs', health_views.MoodLogViewSet, basename='mood-log')
 
 urlpatterns = [
     # 传统的基于视图的路由（保留现有实现以兼容前端）

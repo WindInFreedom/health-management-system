@@ -1,3 +1,4 @@
+// 替换本地内容：扩展路由配置以支持新增页面
 import { createRouter, createWebHashHistory } from 'vue-router'
 import LoginSimple from '../views/LoginSimple.vue'
 import Register from '../views/Register.vue'
@@ -54,7 +55,7 @@ const routes = [
     ]
   },
 
-  // 捕获未匹配的路径，避免空白页
+  // 捕获未匹配的路径
   { path: '/:pathMatch(.*)*', redirect: '/' }
 ]
 

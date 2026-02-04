@@ -7,7 +7,11 @@ from .views import (
     change_password, my_profile,
     MedicationRecordViewSet, SleepLogViewSet, MoodLogViewSet,
 )
-from . import management_views
+from . import management_views, profile_views
+
+# 创建路由器
+router = DefaultRouter()
+router.register(r'profiles-extended', profile_views.ProfileViewSet, basename='profile-extended')
 
 # Create router for ViewSets
 router = DefaultRouter()
