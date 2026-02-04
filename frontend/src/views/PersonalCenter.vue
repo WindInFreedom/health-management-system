@@ -119,7 +119,7 @@ const passwordForm = reactive({
   confirm_password: ''
 })
 
-const uploadUrl = ref(import.meta.env.VITE_API_BASE_URL || '/api' + '/users/me/avatar/')
+const uploadUrl = ref((import.meta.env.VITE_API_BASE_URL || '/api') + '/users/me/avatar/')
 const uploadHeaders = ref({
   Authorization: `Bearer ${authStore.token}`
 })
@@ -147,7 +147,7 @@ const passwordRules = {
   ],
   new_password: [
     { required: true, message: '请输入新密码', trigger: 'blur' },
-    { min: 6, message: '密码长度至少为 6 个字符', trigger: 'blur' }
+    { min: 8, message: '密码长度至少为 8 个字符', trigger: 'blur' }
   ],
   confirm_password: [
     { required: true, message: '请再次输入新密码', trigger: 'blur' },
