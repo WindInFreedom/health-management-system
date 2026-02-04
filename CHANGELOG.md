@@ -5,10 +5,22 @@ All notable changes to the Health Management System will be documented in this f
 ## [2.0.1] - 2024-02-04
 
 ### Security
-- **CRITICAL**: Updated Pillow from 10.1.0 to 10.3.0 to fix buffer overflow vulnerability (CVE)
+- **CRITICAL**: Updated Pillow from 10.1.0 to 10.3.0 to fix buffer overflow vulnerability
   - Affected versions: < 10.3.0
   - Patched version: 10.3.0
-  - All users should upgrade immediately
+- **CRITICAL**: Updated Django from 4.2.7 to 4.2.28 to fix multiple SQL injection vulnerabilities
+  - SQL injection in column aliases
+  - SQL injection in HasKey on Oracle
+  - Path traversal vulnerability
+  - DoS vulnerabilities
+  - Patched version: 4.2.28
+- Updated django-filter from 23.3 to 24.3 for Django 4.2.28 compatibility
+- **Action Required**: All users must upgrade immediately by running:
+  ```bash
+  cd backend
+  pip install -r requirements.txt
+  python manage.py check
+  ```
 
 ## [2.0.0] - 2024-02-04
 
