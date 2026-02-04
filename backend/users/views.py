@@ -1,18 +1,16 @@
-from rest_framework import generics, permissions, status
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework import generics, permissions, status, viewsets
+from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate
 from django.contrib.auth import get_user_model
-from .models import Profile
-from .serializers import UserSerializer, ProfileSerializer
-
-# 如果你已经在 serializers.py 中实现了 RegistrationSerializer，请确保导入它
-try:
-    from .serializers import RegistrationSerializer
-except Exception:
-    RegistrationSerializer = None
+from .models import Profile, MedicationRecord, SleepLog, MoodLog
+from .serializers import (
+    UserSerializer, ProfileSerializer, RegistrationSerializer,
+    MedicationRecordSerializer, SleepLogSerializer, MoodLogSerializer,
+    ChangePasswordSerializer
+)
 
 User = get_user_model()
 
@@ -95,12 +93,124 @@ def register_view(request):
     body: { username, email, first_name?, last_name?, password, password2, department? }
     注意：后端会强制将自注册用户的 role 设置为 'user'（请在 RegistrationSerializer.create 中实现）
     """
-    if RegistrationSerializer is None:
-        return Response({'error': 'RegistrationSerializer 未实现，请在 users/serializers.py 中添加'},
-                        status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
     serializer = RegistrationSerializer(data=request.data)
     if serializer.is_valid():
         user = serializer.save()
         return Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+# ==================== New Views for Enhanced Features ====================
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def change_password(request):
+    """
+    Change user password.
+    POST /api/auth/change-password/
+    body: { old_password, new_password, confirm_password }
+    """
+    serializer = ChangePasswordSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    user = request.user
+    
+    # Check old password
+    if not user.check_password(serializer.validated_data['old_password']):
+        return Response({
+            'old_password': ['当前密码错误']
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    # Set new password
+    user.set_password(serializer.validated_data['new_password'])
+    user.save()
+    
+    return Response({
+        'message': '密码修改成功'
+    }, status=status.HTTP_200_OK)
+
+
+@api_view(['GET', 'PUT', 'PATCH'])
+@permission_classes([permissions.IsAuthenticated])
+def my_profile(request):
+    """
+    Get or update current user's profile.
+    GET/PUT/PATCH /api/profile/me/
+    """
+    # Get or create profile
+    profile, created = Profile.objects.get_or_create(user=request.user)
+    
+    if request.method == 'GET':
+        serializer = ProfileSerializer(profile, context={'request': request})
+        return Response(serializer.data)
+    
+    elif request.method in ['PUT', 'PATCH']:
+        partial = request.method == 'PATCH'
+        serializer = ProfileSerializer(profile, data=request.data, partial=partial, context={'request': request})
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class MedicationRecordViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing medication records.
+    Endpoints:
+    - GET /api/medications/ - List user's medications
+    - POST /api/medications/ - Create medication record
+    - GET /api/medications/{id}/ - Get medication detail
+    - PUT/PATCH /api/medications/{id}/ - Update medication
+    - DELETE /api/medications/{id}/ - Delete medication
+    """
+    serializer_class = MedicationRecordSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        # Users can only see their own records
+        return MedicationRecord.objects.filter(user=self.request.user)
+    
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+
+class SleepLogViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing sleep logs.
+    Endpoints:
+    - GET /api/sleep-logs/ - List user's sleep logs
+    - POST /api/sleep-logs/ - Create sleep log
+    - GET /api/sleep-logs/{id}/ - Get sleep log detail
+    - PUT/PATCH /api/sleep-logs/{id}/ - Update sleep log
+    - DELETE /api/sleep-logs/{id}/ - Delete sleep log
+    """
+    serializer_class = SleepLogSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        return SleepLog.objects.filter(user=self.request.user)
+    
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+
+class MoodLogViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing mood logs.
+    Endpoints:
+    - GET /api/mood-logs/ - List user's mood logs
+    - POST /api/mood-logs/ - Create mood log
+    - GET /api/mood-logs/{id}/ - Get mood log detail
+    - PUT/PATCH /api/mood-logs/{id}/ - Update mood log
+    - DELETE /api/mood-logs/{id}/ - Delete mood log
+    """
+    serializer_class = MoodLogSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        return MoodLog.objects.filter(user=self.request.user)
+    
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+

@@ -6,9 +6,13 @@ from .views import (
     health_statistics,
     predict_health_trends,
     health_recommendations,
-    # 新增导入：
+    # Existing report endpoints
     my_report,
     report_for_user,
+    # New endpoints
+    health_report,
+    health_report_for_user,
+    forecast_health_metric,
 )
 from . import collaborative_views
 from . import admin_views
@@ -29,8 +33,16 @@ urlpatterns = [
     path('measurements/predict/', predict_health_trends, name='predict-health-trends'),
     path('measurements/recommendations/', health_recommendations, name='health-recommendations'),
 
+    # Legacy report endpoints
     path('measurements/report/my/', my_report, name='my-report'),
     path('measurements/report/<int:user_id>/', report_for_user, name='report-for-user'),
+    
+    # New health report endpoints with scoring
+    path('health-report/', health_report, name='health-report'),
+    path('health-report/<int:user_id>/', health_report_for_user, name='health-report-user'),
+    
+    # Forecasting endpoint
+    path('forecast/', forecast_health_metric, name='forecast-metric'),
 
     # 协同过滤功能
     path('collaborative/recommendations/', collaborative_views.collaborative_recommendations, name='collaborative-recommendations'),
