@@ -1,5 +1,11 @@
 # 替换本地内容：扩展依赖以支持MySQL、Channels、S3和预测模型
-Django==4.2.7
+# Security: Updated to Django 4.2.26 to fix multiple vulnerabilities:
+# - CVE: SQL injection in column aliases
+# - CVE: SQL injection in HasKey(lhs, rhs) on Oracle
+# - CVE: Denial-of-service in HttpResponseRedirect on Windows
+# - CVE: Denial-of-service in intcomma template filter
+# - CVE: SQL injection via _connector keyword argument
+Django==4.2.26
 djangorestframework==3.14.0
 djangorestframework-simplejwt==5.3.0
 django-cors-headers==4.3.1
