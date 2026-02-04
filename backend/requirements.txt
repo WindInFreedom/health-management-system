@@ -21,6 +21,7 @@ pytest-cov==4.1.0
 # Additional dependencies for new features (all versions patched for security)
 Pillow==10.3.0
 statsmodels==0.14.1
-pandas==2.1.4
+# pandas==2.1.4
+
 
 
