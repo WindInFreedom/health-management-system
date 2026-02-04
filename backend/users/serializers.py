@@ -1,15 +1,27 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .models import Profile
+from .models import Profile, MedicationRecord, SleepLog, MoodLog
 
 User = get_user_model()
 
 
 class UserSerializer(serializers.ModelSerializer):
+    avatar_url = serializers.SerializerMethodField()
+    
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'date_of_birth', 'phone']
+        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'date_of_birth', 
+                  'phone', 'role', 'avatar', 'avatar_url']
         read_only_fields = ['id']
+        extra_kwargs = {'password': {'write_only': True}}
+    
+    def get_avatar_url(self, obj):
+        if obj.avatar:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.avatar.url)
+            return obj.avatar.url
+        return None
 
 
 class ProfileSerializer(serializers.ModelSerializer):
@@ -17,9 +29,46 @@ class ProfileSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Profile
-        fields = ['id', 'user', 'bio', 'location', 'birth_date', 'created_at', 'updated_at']
+        fields = ['id', 'user', 'bio', 'location', 'birth_date', 'age', 'gender', 
+                  'blood_type', 'height_cm', 'weight_baseline_kg', 'created_at', 'updated_at']
         read_only_fields = ['id', 'created_at', 'updated_at']
-# ---------- 新增：RegistrationSerializer ----------
+
+
+class MedicationRecordSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MedicationRecord
+        fields = ['id', 'user', 'medication_name', 'dosage', 'frequency', 
+                  'start_date', 'end_date', 'notes', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'user', 'created_at', 'updated_at']
+
+
+class SleepLogSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SleepLog
+        fields = ['id', 'user', 'sleep_date', 'start_time', 'end_time', 
+                  'duration_minutes', 'quality_rating', 'notes', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'user', 'duration_minutes', 'created_at', 'updated_at']
+
+
+class MoodLogSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MoodLog
+        fields = ['id', 'user', 'log_date', 'mood_rating', 'notes', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'user', 'created_at', 'updated_at']
+
+
+class ChangePasswordSerializer(serializers.Serializer):
+    old_password = serializers.CharField(required=True, write_only=True)
+    new_password = serializers.CharField(required=True, write_only=True, min_length=8)
+    confirm_password = serializers.CharField(required=True, write_only=True)
+    
+    def validate(self, attrs):
+        if attrs['new_password'] != attrs['confirm_password']:
+            raise serializers.ValidationError({"confirm_password": "两次输入的新密码不一致"})
+        return attrs
+
+
+# ---------- Existing RegistrationSerializer ----------
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 
