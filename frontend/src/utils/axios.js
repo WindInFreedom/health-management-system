@@ -5,7 +5,7 @@ import { useAuthStore } from '../stores/auth.js'
 // - 开发环境建议配合 Vite 代理，前端统一使用 '/api' 前缀，不要写死完整后端地址。
 // - 如果不使用 Vite 代理，或生产环境直连后端，请在 .env 中设置 VITE_API_BASE_URL 为完整后端地址，例如：
 //   VITE_API_BASE_URL=http://localhost:8000/api
-const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api' // TODO: 如需直连后端，请在 .env 中设置实际地址
+const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api' // 默认使用相对路径配合 Vite 代理，生产环境需在 .env 中设置完整后端地址
 
 const api = axios.create({
   baseURL: API_BASE,
@@ -36,7 +36,7 @@ api.interceptors.response.use(
         const refreshToken = authStore?.refreshToken
         if (!refreshToken) {
           authStore?.clearToken?.()
-          // TODO: 未登录跳转地址可根据实际路由调整
+          // 注意：使用 window.location 会触发完整页面重载，清除所有应用状态
           window.location.href = '/'
           return Promise.reject(error)
         }

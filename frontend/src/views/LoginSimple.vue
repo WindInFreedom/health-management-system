@@ -48,7 +48,6 @@ const handleLogin = async () => {
   message.value = ''
   try {
     // 说明：路径相对于 baseURL（默认为 /api 或 .env 中的 VITE_API_BASE_URL）
-    // TODO：如果你的后端登录接口路径不同，请修改 '/auth/login/'
     const { data } = await api.post('/auth/login/', {
       username: username.value,
       password: password.value
@@ -69,7 +68,6 @@ const handleLogin = async () => {
 
     // 获取用户信息（若后端提供）
     try {
-      // TODO：根据你的后端实际用户信息接口调整路径
       const userRes = await api.get('/users/me/')
       authStore.setUser(userRes.data)
     } catch (e) {
