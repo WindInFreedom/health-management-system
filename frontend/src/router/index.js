@@ -1,42 +1,58 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
 import LoginSimple from '../views/LoginSimple.vue'
 import Register from '../views/Register.vue'
+import DashboardLayout from '../views/DashboardLayout.vue'
 import AdvancedDashboard from '../views/AdvancedDashboard.vue'
 import EnhancedDoctorDashboard from '../views/EnhancedDoctorDashboard.vue'
 import EnhancedAdminDashboard from '../views/EnhancedAdminDashboard.vue'
 import MeasurementsList from '../views/MeasurementsList.vue'
+import MeasurementsEnhanced from '../views/MeasurementsEnhanced.vue'
 import SimpleHealthReport from '../views/SimpleHealthReport.vue'
+import HealthReportNew from '../views/HealthReportNew.vue'
+import PersonalCenter from '../views/PersonalCenter.vue'
+import PersonalProfile from '../views/PersonalProfile.vue'
+import MedicationLogs from '../views/MedicationLogs.vue'
+import SleepLogs from '../views/SleepLogs.vue'
+import MoodLogs from '../views/MoodLogs.vue'
 import { useAuthStore } from '../stores/auth.js'
 
 const routes = [
   // 登录页
   { path: '/', name: 'login', component: LoginSimple },
+  { path: '/register', name: 'register', component: Register },
 
-  // 入口：根据角色重定向到具体仪表盘（保留以便直接访问 /dashboard）
+  // Dashboard with layout and nested routes
   {
-    path: '/dashboard',
-    name: 'dashboard-entry',
+    path: '/',
+    component: DashboardLayout,
     meta: { requiresAuth: true },
-    beforeEnter: (to, from, next) => {
-      const authStore = useAuthStore()
-      const role = authStore.user?.role
-      console.log('[router] /dashboard beforeEnter role =', role)
-      if (role === 'admin') return next({ name: 'dashboard-admin' })
-      if (role === 'doctor') return next({ name: 'dashboard-doctor' })
-      return next({ name: 'dashboard-user' })
-    }
+    children: [
+      {
+        path: 'dashboard',
+        name: 'dashboard-entry',
+        beforeEnter: (to, from, next) => {
+          const authStore = useAuthStore()
+          const role = authStore.user?.role
+          console.log('[router] /dashboard beforeEnter role =', role)
+          if (role === 'admin') return next({ name: 'dashboard-admin' })
+          if (role === 'doctor') return next({ name: 'dashboard-doctor' })
+          return next({ name: 'dashboard-user' })
+        }
+      },
+      { path: 'dashboard-user', name: 'dashboard-user', component: AdvancedDashboard },
+      { path: 'dashboard-doctor', name: 'dashboard-doctor', component: EnhancedDoctorDashboard },
+      { path: 'dashboard-admin', name: 'dashboard-admin', component: EnhancedAdminDashboard },
+      { path: 'personal-center', name: 'personal-center', component: PersonalCenter },
+      { path: 'profile', name: 'profile', component: PersonalProfile },
+      { path: 'measurements', name: 'measurements', component: MeasurementsEnhanced },
+      { path: 'measurements-list', name: 'measurements-list', component: MeasurementsList },
+      { path: 'health-report', name: 'health-report', component: HealthReportNew },
+      { path: 'health-report-old', name: 'health-report-old', component: SimpleHealthReport },
+      { path: 'medications', name: 'medications', component: MedicationLogs },
+      { path: 'sleep-logs', name: 'sleep-logs', component: SleepLogs },
+      { path: 'mood-logs', name: 'mood-logs', component: MoodLogs },
+    ]
   },
-  { path: '/', component: LoginSimple },
-  { path: '/register', component: Register },
-  { path: '/dashboard', component: AdvancedDashboard, meta: { requiresAuth: true } },
-  // 具体的仪表盘页面（命名路由）
-  { path: '/dashboard-user', name: 'dashboard-user', component: AdvancedDashboard, meta: { requiresAuth: true } },
-  { path: '/dashboard-doctor', name: 'dashboard-doctor', component: EnhancedDoctorDashboard, meta: { requiresAuth: true } },
-  { path: '/dashboard-admin', name: 'dashboard-admin', component: EnhancedAdminDashboard, meta: { requiresAuth: true } },
-
-  // 其他受保护页面
-  { path: '/measurements', name: 'measurements', component: MeasurementsList, meta: { requiresAuth: true } },
-  { path: '/health-report', name: 'health-report', component: SimpleHealthReport, meta: { requiresAuth: true } },
 
   // 捕获未匹配的路径，避免空白页
   { path: '/:pathMatch(.*)*', redirect: '/' }
