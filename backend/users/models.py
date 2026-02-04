@@ -53,7 +53,7 @@ class Profile(models.Model):
         ('B', 'B型'),
         ('AB', 'AB型'),
         ('O', 'O型'),
-        ('UNKNOWN', '未知'),
+        ('Unknown', '未知'),
     ]
     
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
@@ -64,7 +64,7 @@ class Profile(models.Model):
     # New fields for personal health profile
     age = models.IntegerField(null=True, blank=True, help_text="年龄")
     gender = models.CharField(max_length=1, choices=GENDER_CHOICES, null=True, blank=True, help_text="性别")
-    blood_type = models.CharField(max_length=10, choices=BLOOD_TYPE_CHOICES, default='UNKNOWN', help_text="血型")
+    blood_type = models.CharField(max_length=10, choices=BLOOD_TYPE_CHOICES, default='Unknown', help_text="血型")
     height_cm = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True, help_text="身高 (cm)")
     weight_baseline_kg = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True, help_text="基准体重 (kg)")
     
