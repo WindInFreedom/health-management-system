@@ -1,10 +1,19 @@
-from django.urls import path
+"""
+URL configuration for users app
+替换本地内容：扩展URL以支持档案管理和头像上传
+"""
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
 from .views import (
     UserListCreateView, UserDetailView, 
     ProfileListCreateView, ProfileDetailView,
-    current_user, login_view,register_view,
+    current_user, login_view, register_view,
 )
-from . import management_views
+from . import management_views, profile_views
+
+# 创建路由器
+router = DefaultRouter()
+router.register(r'profiles-extended', profile_views.ProfileViewSet, basename='profile-extended')
 
 urlpatterns = [
     path('login/', login_view, name='login'),
@@ -17,6 +26,13 @@ urlpatterns = [
     path('auth/register/', register_view, name='auth-register'),
     path('auth/login/', login_view, name='auth-login'),
     path('users/me/', current_user, name='current-user'),
+    
+    # 替换本地内容：新增用户管理端点
+    path('user-profile/me/', profile_views.user_profile, name='user-profile-me'),
+    path('user-profile/<int:user_id>/', profile_views.user_profile, name='user-profile'),
+    path('change-password/', profile_views.change_password, name='change-password'),
+    path('upload-avatar/', profile_views.upload_avatar, name='upload-avatar'),
+    
     # 用户管理功能
     path('management/users/', management_views.UserManagementListView.as_view(), name='user-management-list'),
     path('management/users/<int:pk>/', management_views.UserManagementDetailView.as_view(), name='user-management-detail'),
@@ -24,4 +40,7 @@ urlpatterns = [
     path('management/alerts/', management_views.health_alerts, name='health-alerts'),
     path('management/create-doctor/', management_views.create_doctor_user, name='create-doctor'),
     path('management/user/<int:user_id>/health-summary/', management_views.get_user_health_summary, name='user-health-summary'),
+    
+    # ViewSet路由
+    path('', include(router.urls)),
 ]
