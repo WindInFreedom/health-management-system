@@ -334,7 +334,10 @@ const updateWeightChart = async () => {
       .sort((a, b) => new Date(a.measured_at) - new Date(b.measured_at))
     
     const dates = data.map(item => formatDate(item.measured_at).split(' ')[0])
-    const weights = data.map(item => Number(item.weight_kg ?? NaN))
+    const weights = data.map(item => {
+      const val = item.weight_kg
+      return val !== null && val !== undefined ? Number(val) : null
+    })
 
     const series = [{
       name: '实际体重',
@@ -400,8 +403,14 @@ const updatePressureChart = async () => {
       .sort((a, b) => new Date(a.measured_at) - new Date(b.measured_at))
     
     const dates = data.map(item => formatDate(item.measured_at).split(' ')[0])
-    const systolic = data.map(item => Number(item.systolic ?? NaN))
-    const diastolic = data.map(item => Number(item.diastolic ?? NaN))
+    const systolic = data.map(item => {
+      const val = item.systolic
+      return val !== null && val !== undefined ? Number(val) : null
+    })
+    const diastolic = data.map(item => {
+      const val = item.diastolic
+      return val !== null && val !== undefined ? Number(val) : null
+    })
 
     const series = [
       {
@@ -485,7 +494,10 @@ const updateHeartRateChart = async () => {
       .sort((a, b) => new Date(a.measured_at) - new Date(b.measured_at))
     
     const dates = data.map(item => formatDate(item.measured_at).split(' ')[0])
-    const heartRates = data.map(item => Number(item.heart_rate ?? NaN))
+    const heartRates = data.map(item => {
+      const val = item.heart_rate
+      return val !== null && val !== undefined ? Number(val) : null
+    })
 
     const series = [{
       name: '实际心率',
@@ -550,7 +562,10 @@ const updateGlucoseChart = async () => {
       .sort((a, b) => new Date(a.measured_at) - new Date(b.measured_at))
     
     const dates = data.map(item => formatDate(item.measured_at).split(' ')[0])
-    const glucose = data.map(item => Number(item.blood_glucose ?? NaN))
+    const glucose = data.map(item => {
+      const val = item.blood_glucose
+      return val !== null && val !== undefined ? Number(val) : null
+    })
 
     const series = [{
       name: '实际血糖',

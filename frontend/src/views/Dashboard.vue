@@ -246,7 +246,10 @@ const updateWeightChart = async () => {
       .sort((a, b) => new Date(a.measured_at) - new Date(b.measured_at))
     
     const dates = data.map(item => formatDate(item.measured_at).split(' ')[0])
-    const weights = data.map(item => Number(item.weight_kg ?? NaN))
+    const weights = data.map(item => {
+      const val = item.weight_kg
+      return val !== null && val !== undefined ? Number(val) : null
+    })
 
     const option = {
       tooltip: {
@@ -304,8 +307,14 @@ const updatePressureChart = async () => {
       .sort((a, b) => new Date(a.measured_at) - new Date(b.measured_at))
     
     const dates = data.map(item => formatDate(item.measured_at).split(' ')[0])
-    const systolic = data.map(item => Number(item.systolic ?? NaN))
-    const diastolic = data.map(item => Number(item.diastolic ?? NaN))
+    const systolic = data.map(item => {
+      const val = item.systolic
+      return val !== null && val !== undefined ? Number(val) : null
+    })
+    const diastolic = data.map(item => {
+      const val = item.diastolic
+      return val !== null && val !== undefined ? Number(val) : null
+    })
 
     const option = {
       tooltip: {
