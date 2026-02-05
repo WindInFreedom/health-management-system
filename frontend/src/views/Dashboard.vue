@@ -242,11 +242,11 @@ const updateWeightChart = async () => {
     
     // Normalize response, filter and sort ascending by time
     const data = normalizeListResponse(res.data)
-      .filter(i => i?.measured_at)
+      .filter(i => i?.measured_at && i.weight_kg != null)
       .sort((a, b) => new Date(a.measured_at) - new Date(b.measured_at))
     
     const dates = data.map(item => new Date(item.measured_at).toLocaleDateString('zh-CN'))
-    const weights = data.map(item => Number(item.weight_kg ?? NaN))
+    const weights = data.map(item => Number(item.weight_kg))
 
     const option = {
       tooltip: {
@@ -300,12 +300,12 @@ const updatePressureChart = async () => {
     
     // Normalize response, filter and sort ascending by time
     const data = normalizeListResponse(res.data)
-      .filter(i => i?.measured_at)
+      .filter(i => i?.measured_at && i.systolic != null && i.diastolic != null)
       .sort((a, b) => new Date(a.measured_at) - new Date(b.measured_at))
     
     const dates = data.map(item => new Date(item.measured_at).toLocaleDateString('zh-CN'))
-    const systolic = data.map(item => Number(item.systolic ?? NaN))
-    const diastolic = data.map(item => Number(item.diastolic ?? NaN))
+    const systolic = data.map(item => Number(item.systolic))
+    const diastolic = data.map(item => Number(item.diastolic))
 
     const option = {
       tooltip: {
