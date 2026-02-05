@@ -252,6 +252,11 @@ const formatDate = (dateString) => {
   return new Date(dateString).toLocaleString('zh-CN')
 }
 
+// Utility to normalize DRF list responses
+function normalizeListResponse(data) {
+  return Array.isArray(data) ? data : (data?.results ?? [])
+}
+
 const handleLogout = () => {
   authStore.clearToken()
   ElMessage.success('已退出登录')
@@ -376,7 +381,7 @@ const updateWeightChart = async () => {
 
     weightChart.setOption(option)
   } catch (err) {
-    console.error('体重图表错误:', err)
+    console.error('获取体重数据失败:', err)
   }
 }
 

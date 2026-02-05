@@ -167,6 +167,11 @@ const formData = ref({
   notes: ''
 })
 
+// Utility to normalize DRF list responses
+function normalizeListResponse(data) {
+  return Array.isArray(data) ? data : (data?.results ?? [])
+}
+
 onMounted(() => {
   loadData()
   window.addEventListener('resize', handleResize)
@@ -197,7 +202,7 @@ async function loadData() {
       renderChart()
     }
   } catch (error) {
-    ElMessage.error('加载数据失败')
+    ElMessage.error('获取测量数据失败：' + (error.response?.data?.detail || error.message))
     console.error('Load measurements error:', error)
   } finally {
     loading.value = false
@@ -277,17 +282,17 @@ function renderChart() {
   if (showPrediction.value && predictionData.value) {
     const forecastData = predictionData.value.dates.map((date, i) => [
       new Date(date),
-      predictionData.value.forecast[i]
+      Number(predictionData.value.forecast[i])
     ])
     
     const upperData = predictionData.value.dates.map((date, i) => [
       new Date(date),
-      predictionData.value.confidence_upper[i]
+      Number(predictionData.value.confidence_upper[i])
     ])
     
     const lowerData = predictionData.value.dates.map((date, i) => [
       new Date(date),
-      predictionData.value.confidence_lower[i]
+      Number(predictionData.value.confidence_lower[i])
     ])
     
     series.push({
@@ -427,10 +432,10 @@ async function saveMeasurement() {
     
     if (editingId.value) {
       await api.put(`/measurements/${editingId.value}/`, payload)
-      ElMessage.success('更新成功')
+      ElMessage.success('记录已更新')
     } else {
       await api.post('/measurements/', payload)
-      ElMessage.success('添加成功')
+      ElMessage.success('记录已添加')
     }
     
     showAddDialog.value = false
@@ -438,7 +443,7 @@ async function saveMeasurement() {
     resetForm()
     await loadData()
   } catch (error) {
-    ElMessage.error(error.response?.data?.error || '保存失败')
+    ElMessage.error('保存失败：' + (error.response?.data?.error || error.message))
     console.error('Save measurement error:', error)
   } finally {
     saving.value = false
