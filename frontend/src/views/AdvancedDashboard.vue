@@ -247,6 +247,11 @@ const formatDate = (dateString) => {
   return new Date(dateString).toLocaleString('zh-CN')
 }
 
+// Utility to normalize DRF list responses
+function normalizeListResponse(data) {
+  return Array.isArray(data) ? data : (data?.results ?? [])
+}
+
 const handleLogout = () => {
   authStore.clearToken()
   ElMessage.success('已退出登录')
@@ -323,9 +328,13 @@ const updateWeightChart = async () => {
       }
     })
     
-    const data = res.data.results || res.data
-    const dates = data.map(item => formatDate(item.measured_at).split(' ')[0])
-    const weights = data.map(item => item.weight_kg)
+    // Normalize response, filter and sort ascending by time
+    const data = normalizeListResponse(res.data)
+      .filter(i => i?.measured_at)
+      .sort((a, b) => new Date(a.measured_at) - new Date(b.measured_at))
+    
+    const dates = data.map(item => new Date(item.measured_at).toLocaleDateString('zh-CN'))
+    const weights = data.map(item => Number(item.weight_kg ?? NaN))
 
     const series = [{
       name: '实际体重',
@@ -364,7 +373,7 @@ const updateWeightChart = async () => {
 
     weightChart.setOption(option)
   } catch (err) {
-    console.error('体重图表错误:', err)
+    console.error('获取体重数据失败:', err)
   }
 }
 
@@ -385,10 +394,14 @@ const updatePressureChart = async () => {
       }
     })
     
-    const data = res.data.results || res.data
-    const dates = data.map(item => formatDate(item.measured_at).split(' ')[0])
-    const systolic = data.map(item => item.systolic)
-    const diastolic = data.map(item => item.diastolic)
+    // Normalize response, filter and sort ascending by time
+    const data = normalizeListResponse(res.data)
+      .filter(i => i?.measured_at)
+      .sort((a, b) => new Date(a.measured_at) - new Date(b.measured_at))
+    
+    const dates = data.map(item => new Date(item.measured_at).toLocaleDateString('zh-CN'))
+    const systolic = data.map(item => Number(item.systolic ?? NaN))
+    const diastolic = data.map(item => Number(item.diastolic ?? NaN))
 
     const series = [
       {
@@ -466,9 +479,13 @@ const updateHeartRateChart = async () => {
       }
     })
     
-    const data = res.data.results || res.data
-    const dates = data.map(item => formatDate(item.measured_at).split(' ')[0])
-    const heartRates = data.map(item => item.heart_rate)
+    // Normalize response, filter and sort ascending by time
+    const data = normalizeListResponse(res.data)
+      .filter(i => i?.measured_at)
+      .sort((a, b) => new Date(a.measured_at) - new Date(b.measured_at))
+    
+    const dates = data.map(item => new Date(item.measured_at).toLocaleDateString('zh-CN'))
+    const heartRates = data.map(item => Number(item.heart_rate ?? NaN))
 
     const series = [{
       name: '实际心率',
@@ -527,9 +544,13 @@ const updateGlucoseChart = async () => {
       }
     })
     
-    const data = res.data.results || res.data
-    const dates = data.map(item => formatDate(item.measured_at).split(' ')[0])
-    const glucose = data.map(item => item.blood_glucose)
+    // Normalize response, filter and sort ascending by time
+    const data = normalizeListResponse(res.data)
+      .filter(i => i?.measured_at)
+      .sort((a, b) => new Date(a.measured_at) - new Date(b.measured_at))
+    
+    const dates = data.map(item => new Date(item.measured_at).toLocaleDateString('zh-CN'))
+    const glucose = data.map(item => Number(item.blood_glucose ?? NaN))
 
     const series = [{
       name: '实际血糖',

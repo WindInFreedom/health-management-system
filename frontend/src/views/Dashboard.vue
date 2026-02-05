@@ -175,6 +175,11 @@ const formatDate = (dateString) => {
   return new Date(dateString).toLocaleString('zh-CN')
 }
 
+// Utility to normalize DRF list responses
+function normalizeListResponse(data) {
+  return Array.isArray(data) ? data : (data?.results ?? [])
+}
+
 const handleLogout = () => {
   authStore.clearToken()
   ElMessage.success('已退出登录')
@@ -235,9 +240,13 @@ const updateWeightChart = async () => {
       }
     })
     
-    const data = res.data.results || res.data
-    const dates = data.map(item => formatDate(item.measured_at).split(' ')[0])
-    const weights = data.map(item => item.weight_kg)
+    // Normalize response, filter and sort ascending by time
+    const data = normalizeListResponse(res.data)
+      .filter(i => i?.measured_at)
+      .sort((a, b) => new Date(a.measured_at) - new Date(b.measured_at))
+    
+    const dates = data.map(item => new Date(item.measured_at).toLocaleDateString('zh-CN'))
+    const weights = data.map(item => Number(item.weight_kg ?? NaN))
 
     const option = {
       tooltip: {
@@ -289,10 +298,14 @@ const updatePressureChart = async () => {
       }
     })
     
-    const data = res.data.results || res.data
-    const dates = data.map(item => formatDate(item.measured_at).split(' ')[0])
-    const systolic = data.map(item => item.systolic)
-    const diastolic = data.map(item => item.diastolic)
+    // Normalize response, filter and sort ascending by time
+    const data = normalizeListResponse(res.data)
+      .filter(i => i?.measured_at)
+      .sort((a, b) => new Date(a.measured_at) - new Date(b.measured_at))
+    
+    const dates = data.map(item => new Date(item.measured_at).toLocaleDateString('zh-CN'))
+    const systolic = data.map(item => Number(item.systolic ?? NaN))
+    const diastolic = data.map(item => Number(item.diastolic ?? NaN))
 
     const option = {
       tooltip: {
