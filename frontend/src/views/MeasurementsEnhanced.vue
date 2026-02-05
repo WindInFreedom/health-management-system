@@ -152,6 +152,11 @@ const metricUnits = {
   blood_glucose: 'mmol/L'
 }
 
+// Normalize DRF list response - handle both raw arrays and paginated responses
+function normalizeListResponse(data) {
+  return Array.isArray(data) ? data : (data?.results ?? [])
+}
+
 const formData = ref({
   measured_at: new Date(),
   weight_kg: null,
@@ -185,7 +190,7 @@ async function loadData() {
     const { data } = await api.get('/measurements/', {
       params: { ordering: 'measured_at' }
     })
-    // Normalize response, filter out entries without measured_at, and sort ascending by time
+    // Normalize, filter missing measured_at, and sort ascending by time
     measurements.value = normalizeListResponse(data)
       .filter(m => m?.measured_at)
       .sort((a, b) => new Date(a.measured_at) - new Date(b.measured_at))
@@ -239,7 +244,7 @@ function togglePrediction() {
 function renderChart() {
   if (!chartRef.value) return
   
-  // Dispose existing chart instance before re-init
+  // Dispose existing chart instance to avoid stale state
   if (chart) {
     chart.dispose()
   }
@@ -250,7 +255,7 @@ function renderChart() {
   const label = metricLabels[metric]
   const unit = metricUnits[metric]
   
-  // Historical data with strict numeric conversion
+  // Historical data - enforce numeric conversion
   const historicalData = measurements.value
     .filter(m => m[metric] !== null && m[metric] !== undefined)
     .map(m => [new Date(m.measured_at), Number(m[metric])])
@@ -407,7 +412,7 @@ function editMeasurement(row) {
 async function saveMeasurement() {
   saving.value = true
   try {
-    // Sanitize payload: ISO timestamp and numeric conversion
+    // Sanitize payload: ISO timestamp and numeric values
     const payload = {
       measured_at: new Date(formData.value.measured_at).toISOString(),
       weight_kg: formData.value.weight_kg ?? null,
@@ -418,7 +423,7 @@ async function saveMeasurement() {
       notes: formData.value.notes
     }
     
-    // Convert numeric fields to Number or set to null
+    // Ensure numeric fields are numbers
     ;['weight_kg', 'systolic', 'diastolic', 'heart_rate', 'blood_glucose'].forEach(k => {
       if (payload[k] !== null) {
         payload[k] = Number(payload[k])

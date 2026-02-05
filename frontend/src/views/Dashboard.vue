@@ -171,6 +171,11 @@ const weightChangeClass = ref('')
 const weightPeriod = ref('7')
 const pressurePeriod = ref('7')
 
+// Normalize DRF list response - handle both raw arrays and paginated responses
+function normalizeListResponse(data) {
+  return Array.isArray(data) ? data : (data?.results ?? [])
+}
+
 const formatDate = (dateString) => {
   return new Date(dateString).toLocaleString('zh-CN')
 }
@@ -240,13 +245,16 @@ const updateWeightChart = async () => {
       }
     })
     
-    // Normalize response, filter and sort ascending by time
+    // Normalize, filter missing measured_at, and sort ascending by time
     const data = normalizeListResponse(res.data)
-      .filter(i => i?.measured_at && i.weight_kg != null)
+      .filter(item => item?.measured_at)
       .sort((a, b) => new Date(a.measured_at) - new Date(b.measured_at))
     
-    const dates = data.map(item => new Date(item.measured_at).toLocaleDateString('zh-CN'))
-    const weights = data.map(item => Number(item.weight_kg))
+    const dates = data.map(item => formatDate(item.measured_at).split(' ')[0])
+    const weights = data.map(item => {
+      const val = item.weight_kg
+      return val !== null && val !== undefined ? Number(val) : null
+    })
 
     const option = {
       tooltip: {
@@ -298,14 +306,20 @@ const updatePressureChart = async () => {
       }
     })
     
-    // Normalize response, filter and sort ascending by time
+    // Normalize, filter missing measured_at, and sort ascending by time
     const data = normalizeListResponse(res.data)
-      .filter(i => i?.measured_at && i.systolic != null && i.diastolic != null)
+      .filter(item => item?.measured_at)
       .sort((a, b) => new Date(a.measured_at) - new Date(b.measured_at))
     
-    const dates = data.map(item => new Date(item.measured_at).toLocaleDateString('zh-CN'))
-    const systolic = data.map(item => Number(item.systolic))
-    const diastolic = data.map(item => Number(item.diastolic))
+    const dates = data.map(item => formatDate(item.measured_at).split(' ')[0])
+    const systolic = data.map(item => {
+      const val = item.systolic
+      return val !== null && val !== undefined ? Number(val) : null
+    })
+    const diastolic = data.map(item => {
+      const val = item.diastolic
+      return val !== null && val !== undefined ? Number(val) : null
+    })
 
     const option = {
       tooltip: {
