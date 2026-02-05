@@ -48,7 +48,7 @@
         </el-button>
       </div>
       
-      <el-table :data="measurements" style="width: 100%">
+      <el-table :data="measurements" style="width: 100%" :empty-text="'暂无数据'">
         <el-table-column prop="measured_at" label="测量时间" width="180">
           <template #default="{ row }">
             {{ formatDate(row.measured_at) }}
@@ -118,7 +118,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import * as echarts from 'echarts'
 import api from '../utils/axios.js'
@@ -152,6 +152,11 @@ const metricUnits = {
   blood_glucose: 'mmol/L'
 }
 
+// Normalize DRF list response - handle both raw arrays and paginated responses
+function normalizeListResponse(data) {
+  return Array.isArray(data) ? data : (data?.results ?? [])
+}
+
 const formData = ref({
   measured_at: new Date(),
   weight_kg: null,
@@ -180,8 +185,12 @@ async function loadData() {
     const { data } = await api.get('/measurements/', {
       params: { ordering: 'measured_at' }
     })
-    measurements.value = data
+    // Normalize, filter missing measured_at, and sort ascending by time
+    measurements.value = normalizeListResponse(data)
+      .filter(m => m?.measured_at)
+      .sort((a, b) => new Date(a.measured_at) - new Date(b.measured_at))
     
+    await nextTick()
     if (showPrediction.value) {
       await loadPrediction()
     } else {
@@ -230,6 +239,7 @@ function togglePrediction() {
 function renderChart() {
   if (!chartRef.value) return
   
+  // Dispose existing chart instance to avoid stale state
   if (chart) {
     chart.dispose()
   }
@@ -240,10 +250,10 @@ function renderChart() {
   const label = metricLabels[metric]
   const unit = metricUnits[metric]
   
-  // Historical data
+  // Historical data - enforce numeric conversion
   const historicalData = measurements.value
-    .filter(m => m[metric] !== null)
-    .map(m => [new Date(m.measured_at), m[metric]])
+    .filter(m => m[metric] !== null && m[metric] !== undefined)
+    .map(m => [new Date(m.measured_at), Number(m[metric])])
   
   const series = [
     {
@@ -397,10 +407,23 @@ function editMeasurement(row) {
 async function saveMeasurement() {
   saving.value = true
   try {
+    // Sanitize payload: ISO timestamp and numeric values
     const payload = {
-      ...formData.value,
-      measured_at: formData.value.measured_at.toISOString()
+      measured_at: new Date(formData.value.measured_at).toISOString(),
+      weight_kg: formData.value.weight_kg ?? null,
+      systolic: formData.value.systolic ?? null,
+      diastolic: formData.value.diastolic ?? null,
+      heart_rate: formData.value.heart_rate ?? null,
+      blood_glucose: formData.value.blood_glucose ?? null,
+      notes: formData.value.notes
     }
+    
+    // Ensure numeric fields are numbers
+    ;['weight_kg', 'systolic', 'diastolic', 'heart_rate', 'blood_glucose'].forEach(k => {
+      if (payload[k] !== null) {
+        payload[k] = Number(payload[k])
+      }
+    })
     
     if (editingId.value) {
       await api.put(`/measurements/${editingId.value}/`, payload)

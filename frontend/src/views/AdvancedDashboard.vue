@@ -243,6 +243,11 @@ const showPressurePrediction = ref(false)
 const showHeartRatePrediction = ref(false)
 const showGlucosePrediction = ref(false)
 
+// Normalize DRF list response - handle both raw arrays and paginated responses
+function normalizeListResponse(data) {
+  return Array.isArray(data) ? data : (data?.results ?? [])
+}
+
 const formatDate = (dateString) => {
   return new Date(dateString).toLocaleString('zh-CN')
 }
@@ -323,9 +328,16 @@ const updateWeightChart = async () => {
       }
     })
     
-    const data = res.data.results || res.data
+    // Normalize, filter missing measured_at, and sort ascending by time
+    const data = normalizeListResponse(res.data)
+      .filter(item => item?.measured_at)
+      .sort((a, b) => new Date(a.measured_at) - new Date(b.measured_at))
+    
     const dates = data.map(item => formatDate(item.measured_at).split(' ')[0])
-    const weights = data.map(item => item.weight_kg)
+    const weights = data.map(item => {
+      const val = item.weight_kg
+      return val !== null && val !== undefined ? Number(val) : null
+    })
 
     const series = [{
       name: '实际体重',
@@ -385,10 +397,20 @@ const updatePressureChart = async () => {
       }
     })
     
-    const data = res.data.results || res.data
+    // Normalize, filter missing measured_at, and sort ascending by time
+    const data = normalizeListResponse(res.data)
+      .filter(item => item?.measured_at)
+      .sort((a, b) => new Date(a.measured_at) - new Date(b.measured_at))
+    
     const dates = data.map(item => formatDate(item.measured_at).split(' ')[0])
-    const systolic = data.map(item => item.systolic)
-    const diastolic = data.map(item => item.diastolic)
+    const systolic = data.map(item => {
+      const val = item.systolic
+      return val !== null && val !== undefined ? Number(val) : null
+    })
+    const diastolic = data.map(item => {
+      const val = item.diastolic
+      return val !== null && val !== undefined ? Number(val) : null
+    })
 
     const series = [
       {
@@ -466,9 +488,16 @@ const updateHeartRateChart = async () => {
       }
     })
     
-    const data = res.data.results || res.data
+    // Normalize, filter missing measured_at, and sort ascending by time
+    const data = normalizeListResponse(res.data)
+      .filter(item => item?.measured_at)
+      .sort((a, b) => new Date(a.measured_at) - new Date(b.measured_at))
+    
     const dates = data.map(item => formatDate(item.measured_at).split(' ')[0])
-    const heartRates = data.map(item => item.heart_rate)
+    const heartRates = data.map(item => {
+      const val = item.heart_rate
+      return val !== null && val !== undefined ? Number(val) : null
+    })
 
     const series = [{
       name: '实际心率',
@@ -527,9 +556,16 @@ const updateGlucoseChart = async () => {
       }
     })
     
-    const data = res.data.results || res.data
+    // Normalize, filter missing measured_at, and sort ascending by time
+    const data = normalizeListResponse(res.data)
+      .filter(item => item?.measured_at)
+      .sort((a, b) => new Date(a.measured_at) - new Date(b.measured_at))
+    
     const dates = data.map(item => formatDate(item.measured_at).split(' ')[0])
-    const glucose = data.map(item => item.blood_glucose)
+    const glucose = data.map(item => {
+      const val = item.blood_glucose
+      return val !== null && val !== undefined ? Number(val) : null
+    })
 
     const series = [{
       name: '实际血糖',
