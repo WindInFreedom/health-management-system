@@ -23,5 +23,5 @@ Pillow==10.3.0
 statsmodels==0.14.1
 # pandas==2.1.4
 
-
-
+# MySQL database driver
+pymysql==1.1.0
