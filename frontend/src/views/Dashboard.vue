@@ -18,7 +18,7 @@
         </div>
         <div class="header-actions">
           <el-button @click="$router.push('/measurements')">
-            健康记录
+            基本指标
           </el-button>
           <el-button type="danger" @click="handleLogout">
             退出登录

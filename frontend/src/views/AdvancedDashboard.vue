@@ -12,7 +12,7 @@
         </div>
         <div class="header-actions">
           <el-button @click="$router.push('/measurements')">
-            健康记录
+            基本指标
           </el-button>
           <el-button @click="$router.push('/health-report')">
             健康报告
@@ -299,7 +299,7 @@ const fetchRecommendations = async () => {
 
 const fetchPredictions = async () => {
   try {
-    const response = await api.get('/measurements/predict/', {
+    const response = await api.get('/measurements/gru-model/predict-all/', {
       params: { days: 7 }
     })
     predictions.value = response.data

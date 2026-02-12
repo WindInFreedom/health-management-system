@@ -26,4 +26,7 @@ statsmodels==0.14.1
 # MySQL database driver
 pymysql==1.1.0
 
+# PyTorch for GRU model training
+torch==2.10.0
+
 

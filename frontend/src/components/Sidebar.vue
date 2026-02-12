@@ -34,7 +34,7 @@ const menuItems = [
   { path: '/dashboard-user', icon: '🏠', label: '首页' },
   { path: '/personal-center', icon: '👤', label: '个人中心' },
   { path: '/profile', icon: '📋', label: '基本档案' },
-  { path: '/measurements', icon: '📊', label: '健康记录' },
+  { path: '/measurements', icon: '📊', label: '基本指标' },
   { path: '/health-report', icon: '📈', label: '健康报告' },
   { path: '/medications', icon: '💊', label: '用药记录' },
   { path: '/sleep-logs', icon: '😴', label: '睡眠记录' },

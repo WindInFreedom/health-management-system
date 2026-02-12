@@ -21,6 +21,290 @@ class DataProcessingViewSet(viewsets.ViewSet):
     """数据处理视图集"""
     permission_classes = [IsAuthenticated]
     
+    @action(detail=False, methods=['post'])
+    def preprocess_data(self, request):
+        """数据预处理 - 分析、标准化、异常检测、健康评分"""
+        user = request.user
+        
+        measurements = Measurement.objects.filter(user=user)
+        
+        if not measurements.exists():
+            return Response({'message': '暂无测量数据'}, status=status.HTTP_404_NOT_FOUND)
+        
+        results = {
+            'analysis': {},
+            'normalization': {},
+            'anomalies': [],
+            'health_scores': {}
+        }
+        
+        # 1. 数据分析
+        weight_data = [float(m.weight_kg) for m in measurements if m.weight_kg]
+        systolic_data = [m.systolic for m in measurements if m.systolic]
+        diastolic_data = [m.diastolic for m in measurements if m.diastolic]
+        glucose_data = [float(m.blood_glucose) for m in measurements if m.blood_glucose]
+        heart_rate_data = [m.heart_rate for m in measurements if m.heart_rate]
+        
+        results['analysis'] = {
+            'total_records': measurements.count(),
+            'weight': {
+                'min': round(min(weight_data), 2) if weight_data else None,
+                'max': round(max(weight_data), 2) if weight_data else None,
+                'avg': round(sum(weight_data) / len(weight_data), 2) if weight_data else None,
+                'median': round(sorted(weight_data)[len(weight_data) // 2], 2) if weight_data else None,
+            },
+            'systolic': {
+                'min': min(systolic_data) if systolic_data else None,
+                'max': max(systolic_data) if systolic_data else None,
+                'avg': round(sum(systolic_data) / len(systolic_data), 1) if systolic_data else None,
+            },
+            'diastolic': {
+                'min': min(diastolic_data) if diastolic_data else None,
+                'max': max(diastolic_data) if diastolic_data else None,
+                'avg': round(sum(diastolic_data) / len(diastolic_data), 1) if diastolic_data else None,
+            },
+            'glucose': {
+                'min': round(min(glucose_data), 2) if glucose_data else None,
+                'max': round(max(glucose_data), 2) if glucose_data else None,
+                'avg': round(sum(glucose_data) / len(glucose_data), 2) if glucose_data else None,
+            },
+            'heart_rate': {
+                'min': min(heart_rate_data) if heart_rate_data else None,
+                'max': max(heart_rate_data) if heart_rate_data else None,
+                'avg': round(sum(heart_rate_data) / len(heart_rate_data), 1) if heart_rate_data else None,
+            },
+        }
+        
+        # 2. 数据标准化 - 计算体重变化百分比
+        from users.models import Profile
+        try:
+            profile = user.profile
+            if profile.weight_baseline_kg and weight_data:
+                latest_weight = weight_data[-1]
+                weight_diff = latest_weight - float(profile.weight_baseline_kg)
+                weight_change_percent = (weight_diff / float(profile.weight_baseline_kg)) * 100
+                results['normalization'] = {
+                    'baseline_weight': float(profile.weight_baseline_kg),
+                    'latest_weight': latest_weight,
+                    'weight_change_percent': round(weight_change_percent, 2),
+                    'notes': f'体重变化: {weight_change_percent:+.1f}%'
+                }
+        except Profile.DoesNotExist:
+            results['normalization'] = {'notes': '未设置基线体重'}
+        
+        # 3. 异常检测
+        anomalies_count = 0
+        
+        if weight_data:
+            mean_weight = sum(weight_data) / len(weight_data)
+            std_weight = (sum((x - mean_weight) ** 2 for x in weight_data) / len(weight_data)) ** 0.5
+            
+            for measurement in measurements:
+                if measurement.weight_kg:
+                    z_score = (float(measurement.weight_kg) - mean_weight) / std_weight if std_weight > 0 else 0
+                    if abs(z_score) > 3:
+                        results['anomalies'].append({
+                            'type': '体重异常',
+                            'value': f'{measurement.weight_kg}kg',
+                            'z_score': round(z_score, 2),
+                            'time': measurement.measured_at.isoformat()
+                        })
+                        anomalies_count += 1
+        
+        if systolic_data:
+            for measurement in measurements:
+                if measurement.systolic and measurement.systolic > 180:
+                    results['anomalies'].append({
+                        'type': '收缩压异常',
+                        'value': str(measurement.systolic),
+                        'time': measurement.measured_at.isoformat()
+                    })
+                    anomalies_count += 1
+        
+        if glucose_data:
+            for measurement in measurements:
+                if measurement.blood_glucose and float(measurement.blood_glucose) > 15:
+                    results['anomalies'].append({
+                        'type': '血糖异常',
+                        'value': f'{measurement.blood_glucose} mmol/L',
+                        'time': measurement.measured_at.isoformat()
+                    })
+                    anomalies_count += 1
+        
+        if heart_rate_data:
+            for measurement in measurements:
+                if measurement.heart_rate and (measurement.heart_rate < 40 or measurement.heart_rate > 120):
+                    results['anomalies'].append({
+                        'type': '心率异常',
+                        'value': f'{measurement.heart_rate} bpm',
+                        'time': measurement.measured_at.isoformat()
+                    })
+                    anomalies_count += 1
+        
+        # 4. 健康评分计算
+        scores = []
+        
+        if weight_data:
+            avg_weight = sum(weight_data) / len(weight_data)
+            try:
+                profile = user.profile
+                if profile.weight_baseline_kg:
+                    target_weight = float(profile.weight_baseline_kg)
+                    weight_score = max(0, 100 - abs(avg_weight - target_weight) / target_weight * 100)
+                    scores.append({'name': '体重', 'score': round(weight_score, 1)})
+            except Profile.DoesNotExist:
+                pass
+        
+        if systolic_data and diastolic_data:
+            avg_systolic = sum(systolic_data) / len(systolic_data)
+            avg_diastolic = sum(diastolic_data) / len(diastolic_data)
+            
+            if avg_systolic < 120 and avg_diastolic < 80:
+                bp_score = 100
+            elif avg_systolic < 140 and avg_diastolic < 90:
+                bp_score = 80
+            else:
+                bp_score = 60
+            scores.append({'name': '血压', 'score': bp_score})
+        
+        if glucose_data:
+            avg_glucose = sum(glucose_data) / len(glucose_data)
+            if avg_glucose < 5.6:
+                glucose_score = 100
+            elif avg_glucose < 7.0:
+                glucose_score = 80
+            else:
+                glucose_score = 60
+            scores.append({'name': '血糖', 'score': glucose_score})
+        
+        if heart_rate_data:
+            avg_heart_rate = sum(heart_rate_data) / len(heart_rate_data)
+            if 60 <= avg_heart_rate <= 100:
+                heart_rate_score = 100
+            elif avg_heart_rate <= 110:
+                heart_rate_score = 80
+            else:
+                heart_rate_score = 60
+            scores.append({'name': '心率', 'score': heart_rate_score})
+        
+        if scores:
+            overall_score = sum(s['score'] for s in scores) / len(scores)
+            results['health_scores'] = {
+                'overall_score': round(overall_score, 1),
+                'individual_scores': scores
+            }
+        
+        return Response({
+            'message': f'数据预处理完成，发现 {anomalies_count} 个异常值',
+            'results': results,
+            'anomalies_count': anomalies_count
+        })
+    
+    @action(detail=False, methods=['post'])
+    def clean_all_data(self, request):
+        """一键清洗所有数据 - 清洗无效数据、删除重复记录、修复缺失值"""
+        user = request.user
+        
+        total_removed = 0
+        total_fixed = 0
+        all_details = []
+        
+        # 1. 清洗无效数据
+        measurements = Measurement.objects.filter(user=user)
+        
+        for measurement in measurements:
+            removed = False
+            
+            if measurement.weight_kg:
+                if measurement.weight_kg <= 0 or measurement.weight_kg > 300:
+                    measurement.delete()
+                    total_removed += 1
+                    all_details.append(f"删除无效体重: {measurement.weight_kg}kg")
+                    removed = True
+            
+            if measurement.systolic:
+                if measurement.systolic < 50 or measurement.systolic > 250:
+                    measurement.delete()
+                    total_removed += 1
+                    all_details.append(f"删除无效收缩压: {measurement.systolic}")
+                    removed = True
+            
+            if measurement.diastolic:
+                if measurement.diastolic < 30 or measurement.diastolic > 150:
+                    measurement.delete()
+                    total_removed += 1
+                    all_details.append(f"删除无效舒张压: {measurement.diastolic}")
+                    removed = True
+            
+            if measurement.blood_glucose:
+                if measurement.blood_glucose < 1 or measurement.blood_glucose > 30:
+                    measurement.delete()
+                    total_removed += 1
+                    all_details.append(f"删除无效血糖: {measurement.blood_glucose}")
+                    removed = True
+            
+            if measurement.heart_rate:
+                if measurement.heart_rate < 30 or measurement.heart_rate > 200:
+                    measurement.delete()
+                    total_removed += 1
+                    all_details.append(f"删除无效心率: {measurement.heart_rate}")
+                    removed = True
+            
+            if not removed:
+                if not measurement.weight_kg and not measurement.systolic and not measurement.diastolic and not measurement.blood_glucose and not measurement.heart_rate:
+                    measurement.delete()
+                    total_removed += 1
+                    all_details.append("删除空记录")
+        
+        # 2. 删除重复记录
+        measurements = Measurement.objects.filter(user=user).order_by('measured_at')
+        seen = set()
+        
+        for measurement in measurements:
+            key = (measurement.measured_at, measurement.weight_kg, measurement.systolic, measurement.diastolic)
+            
+            if key in seen:
+                measurement.delete()
+                total_removed += 1
+                all_details.append(f"删除重复记录: {measurement.measured_at}")
+            else:
+                seen.add(key)
+        
+        # 3. 修复缺失值
+        measurements = Measurement.objects.filter(user=user)
+        
+        for measurement in measurements:
+            fixed = False
+            
+            if not measurement.weight_kg:
+                user_measurements = measurements.exclude(weight_kg__isnull=True)
+                if user_measurements.exists():
+                    recent_weight = user_measurements.order_by('-measured_at').first()
+                    if recent_weight and recent_weight.weight_kg:
+                        measurement.weight_kg = recent_weight.weight_kg
+                        measurement.save()
+                        total_fixed += 1
+                        all_details.append(f"修复体重: {measurement.measured_at}")
+                        fixed = True
+            
+            if not measurement.heart_rate:
+                user_measurements = measurements.exclude(heart_rate__isnull=True)
+                if user_measurements.exists():
+                    recent_hr = user_measurements.order_by('-measured_at').first()
+                    if recent_hr and recent_hr.heart_rate:
+                        measurement.heart_rate = recent_hr.heart_rate
+                        measurement.save()
+                        total_fixed += 1
+                        all_details.append(f"修复心率: {measurement.measured_at}")
+                        fixed = True
+        
+        return Response({
+            'message': f'一键清洗完成，共删除 {total_removed} 条记录，修复 {total_fixed} 条记录',
+            'removed_count': total_removed,
+            'fixed_count': total_fixed,
+            'details': all_details[:100]
+        })
+    
     @action(detail=False, methods=['get'])
     def overview(self, request):
         """获取数据概览"""
@@ -374,6 +658,175 @@ class DataProcessingViewSet(viewsets.ViewSet):
         return Response(results)
 
 
+class MoodDataProcessingViewSet(viewsets.ViewSet):
+    """心情数据处理视图集"""
+    permission_classes = [IsAuthenticated]
+    
+    @action(detail=False, methods=['post'])
+    def preprocess_mood_data(self, request):
+        """心情数据预处理 - 分析、异常检测、健康评分"""
+        user = request.user
+        
+        mood_logs = MoodLog.objects.filter(user=user)
+        
+        if not mood_logs.exists():
+            return Response({'message': '暂无心情数据'}, status=status.HTTP_404_NOT_FOUND)
+        
+        results = {
+            'analysis': {},
+            'anomalies': [],
+            'health_scores': {}
+        }
+        
+        # 1. 数据分析
+        rating_data = [log.mood_rating for log in mood_logs if log.mood_rating]
+        
+        results['analysis'] = {
+            'total_records': mood_logs.count(),
+            'rating': {
+                'min': min(rating_data) if rating_data else None,
+                'max': max(rating_data) if rating_data else None,
+                'avg': round(sum(rating_data) / len(rating_data), 2) if rating_data else None,
+            },
+        }
+        
+        # 2. 异常检测
+        anomalies_count = 0
+        
+        if rating_data:
+            mean_rating = sum(rating_data) / len(rating_data)
+            std_rating = (sum((x - mean_rating) ** 2 for x in rating_data) / len(rating_data)) ** 0.5
+            
+            for log in mood_logs:
+                if log.mood_rating:
+                    z_score = (log.mood_rating - mean_rating) / std_rating if std_rating > 0 else 0
+                    if abs(z_score) > 3:
+                        results['anomalies'].append({
+                            'type': '心情评分异常',
+                            'value': str(log.mood_rating),
+                            'z_score': round(z_score, 2),
+                            'time': log.log_date
+                        })
+                        anomalies_count += 1
+        
+        # 3. 健康评分计算
+        scores = []
+        
+        if rating_data:
+            avg_rating = sum(rating_data) / len(rating_data)
+            if avg_rating >= 7:
+                rating_score = 100
+            elif avg_rating >= 5:
+                rating_score = 80
+            else:
+                rating_score = 60
+            scores.append({'name': '心情指数', 'score': rating_score})
+        
+        if scores:
+            overall_score = sum(s['score'] for s in scores) / len(scores)
+            results['health_scores'] = {
+                'overall_score': round(overall_score, 1),
+                'individual_scores': scores
+            }
+        
+        return Response({
+            'message': f'心情数据预处理完成，发现 {anomalies_count} 个异常值',
+            'results': results,
+            'anomalies_count': anomalies_count
+        })
+    
+    @action(detail=False, methods=['post'])
+    def clean_all_mood_data(self, request):
+        """一键清洗心情数据"""
+        user = request.user
+        
+        total_removed = 0
+        total_fixed = 0
+        all_details = []
+        
+        # 1. 清洗无效数据
+        mood_logs = MoodLog.objects.filter(user=user)
+        
+        for log in mood_logs:
+            removed = False
+            
+            if log.mood_rating:
+                if log.mood_rating < 1 or log.mood_rating > 10:
+                    log.mood_rating = max(1, min(10, log.mood_rating))
+                    log.save()
+                    total_fixed += 1
+                    all_details.append(f"修正心情评分: {log.mood_rating}")
+            
+            if not removed:
+                if not log.mood_rating:
+                    log.delete()
+                    total_removed += 1
+                    all_details.append("删除空心情记录")
+        
+        # 2. 删除重复记录
+        mood_logs = MoodLog.objects.filter(user=user).order_by('log_date')
+        seen = set()
+        
+        for log in mood_logs:
+            key = (log.log_date, log.mood_rating)
+            
+            if key in seen:
+                log.delete()
+                total_removed += 1
+                all_details.append(f"删除重复记录: {log.log_date}")
+            else:
+                seen.add(key)
+        
+        return Response({
+            'message': f'心情数据一键清洗完成，共删除 {total_removed} 条记录，修复 {total_fixed} 条记录',
+            'removed_count': total_removed,
+            'fixed_count': total_fixed,
+            'details': all_details[:100]
+        })
+    
+    @action(detail=False, methods=['get'])
+    def validate_mood_data(self, request):
+        """验证心情数据质量"""
+        user = request.user
+        
+        mood_logs = MoodLog.objects.filter(user=user)
+        
+        if not mood_logs.exists():
+            return Response({
+                'passed': 0,
+                'failed': 0,
+                'warnings': 0,
+                'details': ['缺少心情数据']
+            })
+        
+        results = {
+            'passed': 0,
+            'failed': 0,
+            'warnings': 0,
+            'details': []
+        }
+        
+        count = mood_logs.count()
+        if count < 100:
+            results['warnings'] += 1
+            results['details'].append(f'心情记录数过少: {count}条')
+        else:
+            results['passed'] += 1
+            results['details'].append(f'心情记录数: {count}条 ✓')
+        
+        rating_data = [log.mood_rating for log in mood_logs if log.mood_rating]
+        if rating_data:
+            avg_rating = sum(rating_data) / len(rating_data)
+            if avg_rating < 1 or avg_rating > 10:
+                results['failed'] += 1
+                results['details'].append(f'平均心情评分异常: {avg_rating:.1f} ✗')
+            else:
+                results['passed'] += 1
+                results['details'].append(f'平均心情评分: {avg_rating:.1f} ✓')
+        
+        return Response(results)
+
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def data_processing_summary(request):
@@ -385,10 +838,227 @@ def data_processing_summary(request):
     mood_logs = MoodLog.objects.filter(user=user)
     
     return Response({
-        'summary': {
-            'total_measurements': measurements.count(),
-            'total_sleep_logs': sleep_logs.count(),
-            'total_mood_logs': mood_logs.count(),
-        },
-        'last_processed': datetime.now().isoformat(),
-    })
+            'summary': {
+                'total_measurements': measurements.count(),
+                'total_sleep_logs': sleep_logs.count(),
+                'total_mood_logs': mood_logs.count(),
+            },
+            'last_processed': datetime.now().isoformat(),
+        })
+
+
+class SleepDataProcessingViewSet(viewsets.ViewSet):
+    """睡眠数据处理视图集"""
+    permission_classes = [IsAuthenticated]
+    
+    @action(detail=False, methods=['post'])
+    def preprocess_sleep_data(self, request):
+        """睡眠数据预处理 - 分析、异常检测、健康评分"""
+        user = request.user
+        
+        sleep_logs = SleepLog.objects.filter(user=user)
+        
+        if not sleep_logs.exists():
+            return Response({'message': '暂无睡眠数据'}, status=status.HTTP_404_NOT_FOUND)
+        
+        results = {
+            'analysis': {},
+            'anomalies': [],
+            'health_scores': {}
+        }
+        
+        # 1. 数据分析
+        duration_data = []
+        for log in sleep_logs:
+            if log.duration_minutes:
+                duration_data.append(log.duration_minutes / 60) # 转换为小时
+        
+        quality_data = [log.quality_rating for log in sleep_logs if log.quality_rating]
+        
+        results['analysis'] = {
+            'total_records': sleep_logs.count(),
+            'duration': {
+                'min': round(min(duration_data), 2) if duration_data else None,
+                'max': round(max(duration_data), 2) if duration_data else None,
+                'avg': round(sum(duration_data) / len(duration_data), 2) if duration_data else None,
+            },
+            'quality': {
+                'min': min(quality_data) if quality_data else None,
+                'max': max(quality_data) if quality_data else None,
+                'avg': round(sum(quality_data) / len(quality_data), 2) if quality_data else None,
+            },
+        }
+        
+        # 2. 异常检测
+        anomalies_count = 0
+        
+        if duration_data:
+            mean_duration = sum(duration_data) / len(duration_data)
+            std_duration = (sum((x - mean_duration) ** 2 for x in duration_data) / len(duration_data)) ** 0.5
+            
+            for log in sleep_logs:
+                if log.duration_minutes:
+                    duration_hours = log.duration_minutes / 60
+                    z_score = (duration_hours - mean_duration) / std_duration if std_duration > 0 else 0
+                    if abs(z_score) > 3:
+                        results['anomalies'].append({
+                            'type': '睡眠时长异常',
+                            'value': f'{duration_hours:.2f}小时',
+                            'z_score': round(z_score, 2),
+                            'time': log.sleep_date
+                        })
+                        anomalies_count += 1
+        
+        if quality_data:
+            for log in sleep_logs:
+                if log.quality_rating and (log.quality_rating < 1 or log.quality_rating > 10):
+                    results['anomalies'].append({
+                        'type': '睡眠质量异常',
+                        'value': str(log.quality_rating),
+                        'time': log.sleep_date
+                    })
+                    anomalies_count += 1
+        
+        # 3. 健康评分计算
+        scores = []
+        
+        if duration_data:
+            avg_duration = sum(duration_data) / len(duration_data)
+            if 7 <= avg_duration <= 9:
+                duration_score = 100
+            elif 6 <= avg_duration <= 10:
+                duration_score = 80
+            else:
+                duration_score = 60
+            scores.append({'name': '睡眠时长', 'score': duration_score})
+        
+        if quality_data:
+            avg_quality = sum(quality_data) / len(quality_data)
+            if avg_quality >= 7:
+                quality_score = 100
+            elif avg_quality >= 5:
+                quality_score = 80
+            else:
+                quality_score = 60
+            scores.append({'name': '睡眠质量', 'score': quality_score})
+        
+        if scores:
+            overall_score = sum(s['score'] for s in scores) / len(scores)
+            results['health_scores'] = {
+                'overall_score': round(overall_score, 1),
+                'individual_scores': scores
+            }
+        
+        return Response({
+            'message': f'睡眠数据预处理完成，发现 {anomalies_count} 个异常值',
+            'results': results,
+            'anomalies_count': anomalies_count
+        })
+    
+    @action(detail=False, methods=['post'])
+    def clean_all_sleep_data(self, request):
+        """一键清洗睡眠数据"""
+        user = request.user
+        
+        total_removed = 0
+        total_fixed = 0
+        all_details = []
+        
+        # 1. 清洗无效数据
+        sleep_logs = SleepLog.objects.filter(user=user)
+        
+        for log in sleep_logs:
+            removed = False
+            
+            if log.duration_minutes:
+                if log.duration_minutes < 60 or log.duration_minutes > 720:
+                    log.delete()
+                    total_removed += 1
+                    all_details.append(f"删除无效睡眠时长: {log.duration_minutes}分钟")
+                    removed = True
+            
+            if log.quality_rating:
+                if log.quality_rating < 1 or log.quality_rating > 10:
+                    log.quality_rating = max(1, min(10, log.quality_rating))
+                    log.save()
+                    total_fixed += 1
+                    all_details.append(f"修正睡眠质量评分: {log.quality_rating}")
+            
+            if not removed:
+                if not log.duration_minutes:
+                    log.delete()
+                    total_removed += 1
+                    all_details.append("删除空睡眠记录")
+        
+        # 2. 删除重复记录
+        sleep_logs = SleepLog.objects.filter(user=user).order_by('sleep_date')
+        seen = set()
+        
+        for log in sleep_logs:
+            key = (log.sleep_date, log.duration_minutes)
+            
+            if key in seen:
+                log.delete()
+                total_removed += 1
+                all_details.append(f"删除重复记录: {log.sleep_date}")
+            else:
+                seen.add(key)
+        
+        return Response({
+            'message': f'睡眠数据一键清洗完成，共删除 {total_removed} 条记录，修复 {total_fixed} 条记录',
+            'removed_count': total_removed,
+            'fixed_count': total_fixed,
+            'details': all_details[:100]
+        })
+    
+    @action(detail=False, methods=['get'])
+    def validate_sleep_data(self, request):
+        """验证睡眠数据质量"""
+        user = request.user
+        
+        sleep_logs = SleepLog.objects.filter(user=user)
+        
+        if not sleep_logs.exists():
+            return Response({
+                'passed': 0,
+                'failed': 0,
+                'warnings': 0,
+                'details': ['缺少睡眠数据']
+            })
+        
+        results = {
+            'passed': 0,
+            'failed': 0,
+            'warnings': 0,
+            'details': []
+        }
+        
+        count = sleep_logs.count()
+        if count < 100:
+            results['warnings'] += 1
+            results['details'].append(f'睡眠记录数过少: {count}条')
+        else:
+            results['passed'] += 1
+            results['details'].append(f'睡眠记录数: {count}条 ✓')
+        
+        duration_data = [log.duration_minutes for log in sleep_logs if log.duration_minutes]
+        if duration_data:
+            avg_duration = sum(duration_data) / len(duration_data)
+            if avg_duration < 240 or avg_duration > 600:
+                results['failed'] += 1
+                results['details'].append(f'平均睡眠时长异常: {avg_duration:.0f}分钟 ✗')
+            else:
+                results['passed'] += 1
+                results['details'].append(f'平均睡眠时长: {avg_duration:.0f}分钟 ✓')
+        
+        quality_data = [log.quality_rating for log in sleep_logs if log.quality_rating]
+        if quality_data:
+            avg_quality = sum(quality_data) / len(quality_data)
+            if avg_quality < 1 or avg_quality > 10:
+                results['failed'] += 1
+                results['details'].append(f'平均睡眠质量异常: {avg_quality:.1f} ✗')
+            else:
+                results['passed'] += 1
+                results['details'].append(f'平均睡眠质量: {avg_quality:.1f} ✓')
+        
+        return Response(results)

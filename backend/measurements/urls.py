@@ -19,6 +19,7 @@ from . import admin_views
 # 替换本地内容：导入扩展的健康视图
 from . import health_views
 from . import data_processing_views
+from . import gru_model_views
 
 from rest_framework.routers import DefaultRouter
 from .views import MeasurementViewSet
@@ -31,6 +32,8 @@ router.register(r'medications', health_views.MedicationRecordViewSet, basename='
 router.register(r'sleep-logs', health_views.SleepLogViewSet, basename='sleep-log')
 router.register(r'mood-logs', health_views.MoodLogViewSet, basename='mood-log')
 router.register(r'data-processing', data_processing_views.DataProcessingViewSet, basename='data-processing')
+router.register(r'sleep-data-processing', data_processing_views.SleepDataProcessingViewSet, basename='sleep-data-processing')
+router.register(r'mood-data-processing', data_processing_views.MoodDataProcessingViewSet, basename='mood-data-processing')
 
 urlpatterns = [
     # 传统的基于视图的路由（保留现有实现以兼容前端）
@@ -69,6 +72,12 @@ urlpatterns = [
 
     # 数据处理API
     path('data-processing/summary/', data_processing_views.data_processing_summary, name='data-processing-summary'),
+    
+    # GRU模型API
+    path('gru-model/train/', gru_model_views.train_gru_model, name='gru-train-model'),
+    path('gru-model/metrics/', gru_model_views.get_model_metrics, name='gru-model-metrics'),
+    path('gru-model/predict/', gru_model_views.predict_with_model, name='gru-model-predict'),
+    path('gru-model/predict-all/', gru_model_views.predict_all_metrics, name='gru-model-predict-all'),
 ]
 
 # 将 router 的自动路由追加到 urlpatterns（不会包含 'api/' 前缀）
