@@ -19,8 +19,7 @@ from . import admin_views
 # 替换本地内容：导入扩展的健康视图
 from . import health_views
 from . import data_processing_views
-# from . import gru_model_views
-from . import lgb_model_views
+# Old model views removed - use new FastAPI microservice at /api/v2/
 
 from rest_framework.routers import DefaultRouter
 from .views import MeasurementViewSet
@@ -67,21 +66,13 @@ urlpatterns = [
 
     path('data-processing/summary/', data_processing_views.data_processing_summary, name='data-processing-summary'),
     
-    # path('gru-model/train/', gru_model_views.train_gru_model, name='gru-train-model'),
-    # path('gru-model/metrics/', gru_model_views.get_model_metrics, name='gru-model-metrics'),
-    # path('gru-model/predict/', gru_model_views.predict_with_model, name='gru-model-predict'),
-    # path('gru-model/predict-all/', gru_model_views.predict_all_metrics, name='gru-model-predict-all'),
-    
-    path('lgb-model/train/', lgb_model_views.train_lgb_model, name='lgb-train-model'),
-    path('lgb-model/metrics/', lgb_model_views.get_model_metrics, name='lgb-model-metrics'),
-    path('lgb-model/predict/', lgb_model_views.predict_with_model, name='lgb-model-predict'),
-    path('lgb-model/predict-all/', lgb_model_views.predict_all_metrics, name='lgb-model-predict-all'),
-    
-    path('lstm-model/train/', lgb_model_views.train_lstm_model_api, name='lstm-train-model'),
-    
-    path('pytorch-model/train/', lgb_model_views.train_pytorch_model, name='pytorch-train-model'),
-    
-    path('advanced-model/train/', lgb_model_views.train_advanced_model, name='advanced-train-model'),
+    # Old model endpoints removed
+    # Use new FastAPI microservice endpoints:
+    # - POST /api/v2/predict - LSTM/Transformer prediction
+    # - POST /api/v2/train - Model training
+    # - POST /api/v2/risk-assessment - Risk assessment
+    # - POST /api/v2/ai-advice - AI health advice
+    # See backend/api/README.md for full API documentation
 ]
 
 # 将 router 的自动路由追加到 urlpatterns（不会包含 'api/' 前缀）
