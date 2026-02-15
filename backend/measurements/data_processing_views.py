@@ -10,8 +10,7 @@ from django.contrib.auth import get_user_model
 from django.db.models import Count, Avg, Max, Min
 from datetime import datetime, timedelta
 
-from .models import Measurement
-from users.models import SleepLog, MoodLog
+from .models import Measurement, SleepLog, MoodLog, MedicationRecord
 from .serializers import MeasurementSerializer, SleepLogSerializer, MoodLogSerializer
 
 User = get_user_model()

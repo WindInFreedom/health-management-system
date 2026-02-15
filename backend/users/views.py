@@ -1,14 +1,13 @@
-from rest_framework import generics, permissions, status, viewsets
+from rest_framework import generics, permissions, status
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate
 from django.contrib.auth import get_user_model
-from .models import Profile, MedicationRecord, SleepLog, MoodLog
+from .models import Profile
 from .serializers import (
     UserSerializer, ProfileSerializer, RegistrationSerializer,
-    MedicationRecordSerializer, SleepLogSerializer, MoodLogSerializer,
     ChangePasswordSerializer
 )
 
@@ -169,64 +168,3 @@ def my_profile(request):
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-class MedicationRecordViewSet(viewsets.ModelViewSet):
-    """
-    ViewSet for managing medication records.
-    Endpoints:
-    - GET /api/medications/ - List user's medications
-    - POST /api/medications/ - Create medication record
-    - GET /api/medications/{id}/ - Get medication detail
-    - PUT/PATCH /api/medications/{id}/ - Update medication
-    - DELETE /api/medications/{id}/ - Delete medication
-    """
-    serializer_class = MedicationRecordSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get_queryset(self):
-        # Users can only see their own records
-        return MedicationRecord.objects.filter(user=self.request.user)
-
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
-
-
-class SleepLogViewSet(viewsets.ModelViewSet):
-    """
-    ViewSet for managing sleep logs.
-    Endpoints:
-    - GET /api/sleep-logs/ - List user's sleep logs
-    - POST /api/sleep-logs/ - Create sleep log
-    - GET /api/sleep-logs/{id}/ - Get sleep log detail
-    - PUT/PATCH /api/sleep-logs/{id}/ - Update sleep log
-    - DELETE /api/sleep-logs/{id}/ - Delete sleep log
-    """
-    serializer_class = SleepLogSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get_queryset(self):
-        return SleepLog.objects.filter(user=self.request.user)
-
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
-
-
-class MoodLogViewSet(viewsets.ModelViewSet):
-    """
-    ViewSet for managing mood logs.
-    Endpoints:
-    - GET /api/mood-logs/ - List user's mood logs
-    - POST /api/mood-logs/ - Create mood log
-    - GET /api/mood-logs/{id}/ - Get mood log detail
-    - PUT/PATCH /api/mood-logs/{id}/ - Update mood log
-    - DELETE /api/mood-logs/{id}/ - Delete mood log
-    """
-    serializer_class = MoodLogSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get_queryset(self):
-        return MoodLog.objects.filter(user=self.request.user)
-
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user)

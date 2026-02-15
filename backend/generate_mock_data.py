@@ -10,8 +10,8 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'health_management_system.settin
 django.setup()
 
 from django.contrib.auth import get_user_model
-from users.models import Profile, SleepLog, MoodLog
-from measurements.models import Measurement
+from users.models import Profile
+from measurements.models import Measurement, SleepLog, MoodLog
 
 User = get_user_model()
 

@@ -5,19 +5,12 @@ from .views import (
     ProfileListCreateView, ProfileDetailView,
     current_user, login_view, register_view,
     change_password, my_profile,
-    MedicationRecordViewSet, SleepLogViewSet, MoodLogViewSet,
 )
 from . import management_views, profile_views
 
-# 创建路由器
-router = DefaultRouter()
-router.register(r'profiles-extended', profile_views.ProfileViewSet, basename='profile-extended')
-
 # Create router for ViewSets
 router = DefaultRouter()
-router.register(r'medications', MedicationRecordViewSet, basename='medication')
-router.register(r'sleep-logs', SleepLogViewSet, basename='sleep-log')
-router.register(r'mood-logs', MoodLogViewSet, basename='mood-log')
+router.register(r'profiles-extended', profile_views.ProfileViewSet, basename='profile-extended')
 
 urlpatterns = [
     # Authentication endpoints

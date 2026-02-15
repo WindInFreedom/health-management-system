@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .models import Profile, MedicationRecord, SleepLog, MoodLog
+from .models import Profile
 
 User = get_user_model()
 
@@ -34,29 +34,6 @@ class ProfileSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_at', 'updated_at']
 
 
-class MedicationRecordSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = MedicationRecord
-        fields = ['id', 'user', 'medication_name', 'dosage', 'frequency', 
-                  'start_date', 'end_date', 'notes', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'user', 'created_at', 'updated_at']
-
-
-class SleepLogSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = SleepLog
-        fields = ['id', 'user', 'sleep_date', 'start_time', 'end_time', 
-                  'duration_minutes', 'quality_rating', 'notes', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'user', 'duration_minutes', 'created_at', 'updated_at']
-
-
-class MoodLogSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = MoodLog
-        fields = ['id', 'user', 'log_date', 'mood_rating', 'notes', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'user', 'created_at', 'updated_at']
-
-
 class ChangePasswordSerializer(serializers.Serializer):
     old_password = serializers.CharField(required=True, write_only=True)
     new_password = serializers.CharField(required=True, write_only=True, min_length=8)
@@ -67,12 +44,6 @@ class ChangePasswordSerializer(serializers.Serializer):
             raise serializers.ValidationError({"confirm_password": "两次输入的新密码不一致"})
         return attrs
 
-
-# ---------- Existing RegistrationSerializer ----------
-from rest_framework import serializers
-from django.contrib.auth import get_user_model
-
-User = get_user_model()
 
 class RegistrationSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True, min_length=8)

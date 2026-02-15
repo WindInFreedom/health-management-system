@@ -9,8 +9,7 @@ from typing import Dict, List, Tuple, Optional
 from datetime import timedelta
 from django.utils import timezone  # 使用 timezone 而不是 datetime
 from django.contrib.auth import get_user_model
-from measurements.models import Measurement
-from users.models import SleepLog, MoodLog
+from measurements.models import Measurement, SleepLog, MoodLog
 
 User = get_user_model()
 
