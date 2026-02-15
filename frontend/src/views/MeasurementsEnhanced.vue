@@ -10,6 +10,7 @@ const authStore = useAuthStore()
 
 const API_BASE = 'http://127.0.0.1:8000/api'
 const FASTAPI_BASE = import.meta.env.VITE_FASTAPI_BASE_URL || 'http://localhost:8001'
+const DEFAULT_MODEL_TYPE = 'lstm'  // Default prediction model type
 
 // UI/状态
 const loading = ref(false)
@@ -134,11 +135,12 @@ async function loadPrediction() {
   }
   
   try {
-    const { data } = await api.post(`${FASTAPI_BASE}/api/v2/predict`, {
+    const fastApiUrl = `${FASTAPI_BASE}/api/v2/predict`
+    const { data } = await api.post(fastApiUrl, {
       user_id: authStore.user.id,
       metric: selectedMetric.value,
       days: predictionHorizon.value,
-      model_type: 'lstm'
+      model_type: DEFAULT_MODEL_TYPE
     })
     
     console.log('Prediction API response:', data)
