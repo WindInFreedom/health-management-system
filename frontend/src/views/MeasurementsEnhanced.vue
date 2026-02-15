@@ -9,6 +9,7 @@ import { useAuthStore } from '../stores/auth'
 const authStore = useAuthStore()
 
 const API_BASE = 'http://127.0.0.1:8000/api'
+const FASTAPI_BASE = import.meta.env.VITE_FASTAPI_BASE_URL || 'http://localhost:8001'
 
 // UI/状态
 const loading = ref(false)
@@ -124,9 +125,17 @@ async function loadData() {
 async function loadPrediction() {
   console.log('loadPrediction called, showPrediction:', showPrediction.value, 'predictionHorizon:', predictionHorizon.value)
   if (!showPrediction.value) return
+  
+  // Check if user is authenticated
+  if (!authStore.user?.id) {
+    ElMessage.warning('请先登录以使用预测功能')
+    showPrediction.value = false
+    return
+  }
+  
   try {
-    const { data } = await api.post('http://localhost:8001/api/v2/predict', {
-      user_id: authStore.user?.id || 1,
+    const { data } = await api.post(`${FASTAPI_BASE}/api/v2/predict`, {
+      user_id: authStore.user.id,
       metric: selectedMetric.value,
       days: predictionHorizon.value,
       model_type: 'lstm'
