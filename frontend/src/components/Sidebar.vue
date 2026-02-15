@@ -39,6 +39,7 @@ const menuItems = [
   { path: '/medications', icon: '💊', label: '用药记录' },
   { path: '/sleep-logs', icon: '😴', label: '睡眠记录' },
   { path: '/mood-logs', icon: '😊', label: '心情记录' },
+  { path: '/enhanced-prediction', icon: '🤖', label: 'AI智能预测' },
 ]
 
 function toggleCollapse() {
