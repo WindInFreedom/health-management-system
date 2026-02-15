@@ -5,8 +5,7 @@ import django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'health_management_system.settings')
 django.setup()
 
-from measurements.models import Measurement
-from users.models import SleepLog, MoodLog, MedicationRecord
+from measurements.models import Measurement, SleepLog, MoodLog, MedicationRecord
 
 print("=== 数据库数据检查 ===")
 print(f"SleepLog 记录数: {SleepLog.objects.count()}")

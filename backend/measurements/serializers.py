@@ -1,6 +1,5 @@
 from rest_framework import serializers
-from .models import Measurement, MedicationRecord
-from users.models import SleepLog, MoodLog  # 从 users.models 导入
+from .models import Measurement, MedicationRecord, SleepLog, MoodLog
 
 
 class MeasurementSerializer(serializers.ModelSerializer):

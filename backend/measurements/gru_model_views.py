@@ -206,9 +206,8 @@ def predict_future(model, scaler, last_data, days=7, input_size=1, seq_length=14
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def train_gru_model(request):
-    from measurements.models import Measurement
+    from measurements.models import Measurement, SleepLog, MoodLog
     from django.contrib.auth import get_user_model
-    from users.models import SleepLog, MoodLog
     User = get_user_model()
     
     user = request.user
@@ -459,7 +458,7 @@ def get_model_metrics(request):
 @permission_classes([IsAuthenticated])
 def predict_with_model(request):
     from django.contrib.auth import get_user_model
-    from users.models import SleepLog, MoodLog
+    from measurements.models import SleepLog, MoodLog
     User = get_user_model()
     
     user = request.user

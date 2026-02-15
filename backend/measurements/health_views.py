@@ -11,8 +11,7 @@ from datetime import datetime, timedelta
 from django.db.models import Avg, Count
 from decimal import Decimal
 
-from .models import MedicationRecord, Measurement
-from users.models import SleepLog, MoodLog  # 从 users.models 导入
+from .models import MedicationRecord, Measurement, SleepLog, MoodLog
 from .serializers import (
     MedicationRecordSerializer,
     SleepLogSerializer,
