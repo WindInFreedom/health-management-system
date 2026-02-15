@@ -1,0 +1,28 @@
+{
+  "feature_config": {
+    "use_time_features": false,
+    "use_moving_avg": false,
+    "use_lag_features": true,
+    "use_diff_features": true,
+    "moving_avg_window": 7,
+    "lag_days": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ]
+  },
+  "feature_cols": [
+    "systolic_lag1",
+    "systolic_lag2",
+    "systolic_lag3",
+    "systolic_lag4",
+    "systolic_lag5",
+    "systolic_lag6",
+    "systolic_lag7",
+    "systolic_diff"
+  ]
+}

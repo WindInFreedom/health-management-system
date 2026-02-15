@@ -1,0 +1,25 @@
+{
+  "feature_config": {
+    "use_time_features": false,
+    "use_moving_avg": true,
+    "use_lag_features": true,
+    "moving_avg_window": 7,
+    "lag_days": [
+      1,
+      7,
+      14
+    ]
+  },
+  "model_config": {
+    "hidden_size": 64,
+    "num_layers": 1,
+    "bidirectional": true,
+    "dropout": 0.2
+  },
+  "training_config": {
+    "epochs": 50,
+    "learning_rate": 0.001,
+    "batch_size": 32,
+    "seq_length": 7
+  }
+}

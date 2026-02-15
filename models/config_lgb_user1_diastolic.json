@@ -1,0 +1,35 @@
+{
+  "feature_config": {
+    "use_time_features": false,
+    "use_moving_avg": false,
+    "use_lag_features": true,
+    "use_diff_features": true,
+    "moving_avg_window": 7,
+    "lag_days": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ]
+  },
+  "feature_cols": [
+    "diastolic_lag1",
+    "diastolic_lag2",
+    "diastolic_lag3",
+    "diastolic_lag4",
+    "diastolic_lag5",
+    "diastolic_lag6",
+    "diastolic_lag7",
+    "diastolic_diff",
+    "diastolic_lag1_diff",
+    "diastolic_lag2_diff",
+    "diastolic_lag3_diff",
+    "diastolic_lag4_diff",
+    "diastolic_lag5_diff",
+    "diastolic_lag6_diff",
+    "diastolic_lag7_diff"
+  ]
+}

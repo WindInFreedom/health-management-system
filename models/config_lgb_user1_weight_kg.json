@@ -1,0 +1,35 @@
+{
+  "feature_config": {
+    "use_time_features": false,
+    "use_moving_avg": false,
+    "use_lag_features": true,
+    "use_diff_features": true,
+    "moving_avg_window": 7,
+    "lag_days": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ]
+  },
+  "feature_cols": [
+    "weight_kg_lag1",
+    "weight_kg_lag2",
+    "weight_kg_lag3",
+    "weight_kg_lag4",
+    "weight_kg_lag5",
+    "weight_kg_lag6",
+    "weight_kg_lag7",
+    "weight_kg_diff",
+    "weight_kg_lag1_diff",
+    "weight_kg_lag2_diff",
+    "weight_kg_lag3_diff",
+    "weight_kg_lag4_diff",
+    "weight_kg_lag5_diff",
+    "weight_kg_lag6_diff",
+    "weight_kg_lag7_diff"
+  ]
+}
