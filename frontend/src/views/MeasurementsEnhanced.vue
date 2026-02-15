@@ -125,9 +125,11 @@ async function loadPrediction() {
   console.log('loadPrediction called, showPrediction:', showPrediction.value, 'predictionHorizon:', predictionHorizon.value)
   if (!showPrediction.value) return
   try {
-    const { data } = await api.post('/lgb-model/predict/', {
+    const { data } = await api.post('http://localhost:8001/api/v2/predict', {
+      user_id: authStore.user?.id || 1,
       metric: selectedMetric.value,
-      days: predictionHorizon.value
+      days: predictionHorizon.value,
+      model_type: 'lstm'
     })
     
     console.log('Prediction API response:', data)
@@ -149,9 +151,9 @@ async function loadPrediction() {
     predictionData.value = {
       dates: predictionDates,
       values: data.predictions,
-      lowerBound: data.lower_bound || null,
-      upperBound: data.upper_bound || null,
-      historical: data.historical || null
+      lowerBound: data.confidence_interval?.lower || null,
+      upperBound: data.confidence_interval?.upper || null,
+      historical: data.historical_backtest || null
     }
     
     console.log('predictionData set:', predictionData.value)
