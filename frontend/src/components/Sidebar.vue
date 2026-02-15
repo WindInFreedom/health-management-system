@@ -54,7 +54,7 @@ function isActive(path) {
 .sidebar {
   width: 240px;
   height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #0056b3;
   color: white;
   transition: width 0.3s ease;
   display: flex;

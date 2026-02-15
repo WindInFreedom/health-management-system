@@ -4,18 +4,19 @@
       <div class="register-card">
         <div class="card-title">
           <h1>注册新用户</h1>
+          <p class="card-subtitle">创建您的健康管理账号，开始智能健康之旅</p>
         </div>
 
         <label class="field-label">用户名</label>
         <input v-model="form.username" type="text" placeholder="请输入用户名" class="field-input" />
 
-        <label class="field-label" style="margin-top:12px;">邮箱</label>
+        <label class="field-label">邮箱</label>
         <input v-model="form.email" type="email" placeholder="请输入邮箱" class="field-input" />
 
-        <label class="field-label" style="margin-top:12px;">密码</label>
+        <label class="field-label">密码</label>
         <input v-model="form.password" type="password" placeholder="请输入密码" class="field-input" />
 
-        <label class="field-label" style="margin-top:12px;">确认密码</label>
+        <label class="field-label">确认密码</label>
         <input v-model="form.password2" type="password" placeholder="请再次输入密码" class="field-input" />
 
         <div class="actions">
@@ -91,15 +92,174 @@ const goLogin = () => {
 </script>
 
 <style scoped>
-/* 与登录页风格保持一致的简单样式 */
-.register-page { min-height:100vh; display:flex; align-items:center; justify-content:center; background:linear-gradient(180deg,#f6fbff,#fff); font-family:...; }
-.register-card { width:420px; background:#fff; border-radius:10px; padding:24px; box-shadow:0 6px 20px rgba(31,110,235,0.08); }
-.card-title h1 { margin:0; font-size:22px; color:#1f6feb; text-align:center; }
-.field-label { font-size:15px; margin-top:8px; color:#4b5563; }
-.field-input { width:100%; padding:12px; font-size:15px; border-radius:8px; border:1px solid #e6eef8; }
-.actions { margin-top:16px; }
-.btn-primary { width:100%; padding:12px; background:linear-gradient(90deg,#2f80ed,#1f6feb); color:#fff; border-radius:8px; border:none; }
-.message { margin-top:12px; color:#e74c3c; text-align:center; }
-.foot { margin-top:10px; text-align:center; font-size:13px; }
-.foot a { color:#1f6feb; cursor:pointer; }
+.register-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  position: relative;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+
+
+.register-main {
+  position: relative;
+  z-index: 1;
+}
+
+.register-card {
+  width: 480px;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+  padding: 30px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.register-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
+}
+
+.card-title {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.card-title h1 {
+  margin: 0 0 10px 0;
+  font-size: 28px;
+  color: #ffffff;
+  font-weight: 700;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.card-subtitle {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 14px;
+  line-height: 1.4;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.field-label {
+  font-size: 15px;
+  margin-top: 20px;
+  margin-bottom: 8px;
+  color: rgba(255, 255, 255, 0.8);
+  font-weight: 500;
+  display: block;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.field-input {
+  width: 100%;
+  padding: 14px 16px;
+  font-size: 16px;
+  border-radius: 10px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  transition: all 0.3s ease;
+  box-sizing: border-box;
+}
+
+.field-input::placeholder {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.field-input:focus {
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.5);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.actions {
+  margin-top: 30px;
+}
+
+.btn-primary {
+  width: 100%;
+  padding: 14px 20px;
+  background: linear-gradient(135deg, var(--primary-color), var(--primary-light));
+  color: #fff;
+  border-radius: 10px;
+  border: none;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.message {
+  margin-top: 16px;
+  color: #ff6b6b;
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.4;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.foot {
+  margin-top: 20px;
+  text-align: center;
+  font-size: 14px;
+}
+
+.foot a {
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  font-weight: 500;
+  transition: color 0.3s ease;
+  text-decoration: none;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.foot a:hover {
+  color: #ffffff;
+  text-decoration: underline;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .register-page {
+    padding: 20px;
+  }
+  
+  .register-card {
+    width: 100%;
+    max-width: 400px;
+    padding: 20px;
+  }
+  
+  .card-title h1 {
+    font-size: 24px;
+  }
+  
+  .field-input {
+    padding: 12px 14px;
+  }
+  
+  .btn-primary {
+    padding: 12px 18px;
+  }
+}
 </style>

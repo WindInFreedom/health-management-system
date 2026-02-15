@@ -96,13 +96,13 @@ class MoodLogSerializer(serializers.ModelSerializer):
     
     def get_mood_description(self, obj):
         """根据评分返回情绪描述"""
-        if obj.rating >= 9:
+        if obj.mood_rating >= 9:
             return "非常愉悦"
-        elif obj.rating >= 7:
+        elif obj.mood_rating >= 7:
             return "心情不错"
-        elif obj.rating >= 5:
+        elif obj.mood_rating >= 5:
             return "情绪平稳"
-        elif obj.rating >= 3:
+        elif obj.mood_rating >= 3:
             return "有些低落"
         else:
             return "情绪低沉"

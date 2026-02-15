@@ -104,9 +104,10 @@ def load_model(user_id, metric, model_dir='models'):
     scaler_file = os.path.join(model_dir, f'scaler_user{user_id}_{metric}.pkl')
     original_scaler_file = os.path.join(model_dir, f'original_scaler_user{user_id}_{metric}.pkl')
     metrics_file = os.path.join(model_dir, f'metrics_gru_user{user_id}_{metric}.json')
+    config_file = os.path.join(model_dir, f'config_user{user_id}_{metric}.json')
     
     if not os.path.exists(model_file):
-        return None, None, None
+        return None, None, None, None, None
     
     checkpoint = torch.load(model_file, map_location=device)
     
@@ -133,7 +134,13 @@ def load_model(user_id, metric, model_dir='models'):
     with open(metrics_file, 'r') as f:
         metrics = json.load(f)
     
-    return model, scaler, metrics, original_scaler
+    feature_config = None
+    if os.path.exists(config_file):
+        with open(config_file, 'r') as f:
+            config_data = json.load(f)
+            feature_config = config_data.get('feature_config')
+    
+    return model, scaler, metrics, original_scaler, feature_config
 
 
 def predict_future(model, scaler, last_data, days=7, input_size=1, seq_length=14, 
@@ -437,7 +444,7 @@ def get_model_metrics(request):
     if not metric:
         return Response({'error': '请指定指标'}, status=status.HTTP_400_BAD_REQUEST)
     
-    model, scaler, metrics, original_scaler = load_model(user.id, metric)
+    model, scaler, metrics, original_scaler, feature_config = load_model(user.id, metric)
     
     if model is None:
         return Response({'error': '模型不存在，请先训练模型'}, status=status.HTTP_404_NOT_FOUND)
@@ -538,7 +545,7 @@ def predict_with_model(request):
         if len(df_metric) < 7:
             return Response({'error': '有效数据不足'}, status=status.HTTP_400_BAD_REQUEST)
     
-    model, scaler, metrics, original_scaler = load_model(user.id, metric)
+    model, scaler, metrics, original_scaler, feature_config = load_model(user.id, metric)
     
     if model is None:
         return Response({'error': '模型不存在，请先训练模型'}, status=status.HTTP_404_NOT_FOUND)
@@ -575,22 +582,21 @@ def predict_all_metrics(request):
     user = request.user
     days = int(request.GET.get('days', 7))
     
-    feature_config = {
-        'use_time_features': False,
-        'use_moving_avg': False,
-        'moving_avg_window': 7,
-        'use_lag_features': True,
-        'lag_days': [1, 7, 14]
-    }
-    
     metrics_to_predict = ['weight_kg', 'systolic', 'diastolic', 'heart_rate', 'blood_glucose']
     predictions = {}
     
     for metric in metrics_to_predict:
-        model, scaler, metrics, original_scaler = load_model(user.id, metric)
+        model, scaler, metrics, original_scaler, feature_config = load_model(user.id, metric)
         
         if model is None:
             continue
+        
+        config_file = os.path.join('models', f'config_user{user.id}_{metric}.json')
+        seq_length = 14
+        if os.path.exists(config_file):
+            with open(config_file, 'r') as f:
+                config_data = json.load(f)
+                seq_length = config_data.get('training_config', {}).get('seq_length', 14)
         
         from measurements.models import Measurement
         measurements = Measurement.objects.filter(user=user).order_by('measured_at')
@@ -619,7 +625,7 @@ def predict_all_metrics(request):
             df_processed = preprocess_data(df_cleaned, feature_config)
         
         last_data = scaler.transform(df_processed.values)
-        pred_values = predict_future(model, scaler, last_data, days=days, input_size=input_size, seq_length=14, original_scaler=original_scaler)
+        pred_values = predict_future(model, scaler, last_data, days=days, input_size=input_size, seq_length=seq_length, original_scaler=original_scaler)
         
         current_value = float(df_metric.iloc[-1].values[0])
         

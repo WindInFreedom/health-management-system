@@ -48,7 +48,7 @@ class SleepLogViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'])
     def statistics(self, request):
-        """获取睡眠统计数据"""
+        """获取情绪统计数据"""
         logs = self.get_queryset()
         
         if not logs.exists():
@@ -85,16 +85,16 @@ class MoodLogViewSet(viewsets.ModelViewSet):
         if not logs.exists():
             return Response({'message': '暂无情绪数据'}, status=status.HTTP_404_NOT_FOUND)
         
-        avg_rating = logs.aggregate(Avg('rating'))['rating__avg']
+        avg_rating = logs.aggregate(Avg('mood_rating'))['mood_rating__avg']
         
         # 最近7天的情绪趋势
         week_ago = datetime.now().date() - timedelta(days=7)
-        recent_logs = logs.filter(date__gte=week_ago).order_by('date')
+        recent_logs = logs.filter(log_date__gte=week_ago).order_by('log_date')
         
         trend_data = [
             {
-                'date': log.date.isoformat(),
-                'rating': log.rating
+                'date': log.log_date.isoformat(),
+                'rating': log.mood_rating
             }
             for log in recent_logs
         ]
@@ -146,7 +146,7 @@ def health_report(request, user_id=None):
     avg_sleep = SleepLog.objects.filter(user=user).aggregate(Avg('duration_minutes'))['duration_minutes__avg']
     
     # 获取情绪数据
-    recent_mood = MoodLog.objects.filter(user=user).order_by('-date').first()
+    recent_mood = MoodLog.objects.filter(user=user).order_by('-log_date').first()
     
     # 准备健康数据
     user_data = {
@@ -158,7 +158,7 @@ def health_report(request, user_id=None):
         'blood_glucose': float(latest_measurement.blood_glucose) if latest_measurement.blood_glucose else None,
         'sleep_hours': (avg_sleep / 60) if avg_sleep else None,
         'sleep_quality': recent_sleep.quality_rating if recent_sleep else None,
-        'mood_rating': recent_mood.rating if recent_mood else None,
+        'mood_rating': recent_mood.mood_rating if recent_mood else None,
     }
     
     # 生成健康报告

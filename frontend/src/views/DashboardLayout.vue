@@ -19,7 +19,9 @@ import HeaderBar from '../components/HeaderBar.vue'
 .dashboard-layout {
   display: flex;
   min-height: 100vh;
-  background: #f5f7fa;
+  background: transparent;
+  position: relative;
+  overflow: hidden;
 }
 
 .main-content {
@@ -28,6 +30,13 @@ import HeaderBar from '../components/HeaderBar.vue'
   flex-direction: column;
   margin-left: 240px; /* Width of sidebar */
   transition: margin-left 0.3s ease;
+  position: relative;
+  z-index: 1;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border-radius: 10px;
+  margin: 20px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
 }
 
 .content-area {
@@ -39,6 +48,7 @@ import HeaderBar from '../components/HeaderBar.vue'
 @media (max-width: 768px) {
   .main-content {
     margin-left: 0;
+    margin: 10px;
   }
 }
 </style>

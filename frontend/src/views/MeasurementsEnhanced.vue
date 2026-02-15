@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, DocumentCopy, Edit, CircleCheck, Refresh, DataAnalysis } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
@@ -27,9 +27,20 @@ const selectedMetric = ref('systolic')
 // 预测控制
 const showPrediction = ref(false)
 const predictionHorizon = ref(7)
+
 const predictionData = ref(null)
-const modelMetrics = ref(null)
-const trainingModel = ref(false)
+
+// 时间范围选择
+const dateRange = ref([])
+const startTime = ref('')
+const endTime = ref('')
+
+// 监听指标变化，自动重新加载预测数据
+watch(selectedMetric, async (newMetric) => {
+  if (showPrediction.value) {
+    await loadPrediction()
+  }
+})
 
 // 数据处理结果
 const operationResults = ref([])
@@ -81,8 +92,18 @@ const formatDate = (dateString) => {
 async function loadData() {
   loading.value = true
   try {
+    const params = { ordering: 'measured_at' }
+    
+    // 添加时间范围参数
+    if (startTime.value) {
+      params.start_date = startTime.value
+    }
+    if (endTime.value) {
+      params.end_date = endTime.value
+    }
+    
     const { data } = await api.get('/measurements/', {
-      params: { ordering: 'measured_at' }
+      params
     })
     measurements.value = normalizeListResponse(data)
       .filter(m => m?.measured_at)
@@ -101,12 +122,15 @@ async function loadData() {
 
 // 加载预测
 async function loadPrediction() {
+  console.log('loadPrediction called, showPrediction:', showPrediction.value, 'predictionHorizon:', predictionHorizon.value)
   if (!showPrediction.value) return
   try {
-    const { data } = await api.post('/gru-model/predict/', {
+    const { data } = await api.post('/lgb-model/predict/', {
       metric: selectedMetric.value,
       days: predictionHorizon.value
     })
+    
+    console.log('Prediction API response:', data)
     
     const lastMeasurement = measurements.value
       .filter(m => m[selectedMetric.value] !== null && m[selectedMetric.value] !== undefined)
@@ -124,20 +148,25 @@ async function loadPrediction() {
     
     predictionData.value = {
       dates: predictionDates,
-      values: data.predictions
+      values: data.predictions,
+      lowerBound: data.lower_bound || null,
+      upperBound: data.upper_bound || null,
+      historical: data.historical || null
     }
-    modelMetrics.value = data.metrics
+    
+    console.log('predictionData set:', predictionData.value)
+    
     await nextTick()
     renderChart()
   } catch (error) {
     predictionData.value = null
-    modelMetrics.value = null
     console.warn('预测数据获取失败：', error)
     ElMessage.error('预测失败：' + (error.response?.data?.error || error.message))
   }
 }
 
 function togglePrediction() {
+  console.log('togglePrediction called, showPrediction:', showPrediction.value)
   if (showPrediction.value) {
     loadPrediction()
   } else {
@@ -155,47 +184,365 @@ function renderChart() {
   const list = measurements.value
     .filter(m => m[selectedMetric.value] !== null && m[selectedMetric.value] !== undefined)
 
-  const dates = list.map(m => new Date(m.measured_at).toLocaleDateString('zh-CN'))
+  // 使用时间轴而不是分类轴
+  const dates = list.map(m => new Date(m.measured_at).getTime())
   const values = list.map(m => Number(m[selectedMetric.value]))
+
+  // 为每种指标配置独立的纵轴量程
+  const yAxisConfig = {
+    type: 'value',
+    name: metricUnits[selectedMetric.value]
+  }
+  
+  switch (selectedMetric.value) {
+    case 'weight_kg':
+      yAxisConfig.min = 40
+      yAxisConfig.max = 100
+      break
+    case 'systolic':
+      yAxisConfig.min = 60
+      yAxisConfig.max = 180
+      break
+    case 'diastolic':
+      yAxisConfig.min = 40
+      yAxisConfig.max = 110
+      break
+    case 'heart_rate':
+      yAxisConfig.min = 50
+      yAxisConfig.max = 120
+      break
+    case 'blood_glucose':
+      yAxisConfig.min = 2
+      yAxisConfig.max = 10
+      break
+  }
+
+  // 定义正常范围和阈值
+  let normalRange = null
+  let warningThreshold = null
+  
+  switch (selectedMetric.value) {
+    case 'weight_kg':
+      // 常见成人身高160-180cm对应的正常体重范围
+      normalRange = [50, 75]
+      warningThreshold = 85
+      break
+    case 'systolic':
+      normalRange = [90, 139]
+      warningThreshold = 140
+      break
+    case 'diastolic':
+      normalRange = [60, 89]
+      warningThreshold = 90
+      break
+    case 'heart_rate':
+      normalRange = [60, 100]
+      warningThreshold = 100
+      break
+    case 'blood_glucose':
+      normalRange = [3.9, 6.1]
+      warningThreshold = 7.0
+      break
+  }
 
   const series = [{
     name: metricLabels[selectedMetric.value],
-    data: values,
+    data: values.map((v, i) => [dates[i], v]),
     type: 'line',
     smooth: true,
     itemStyle: { color: '#409EFF' },
-    areaStyle: selectedMetric.value === 'weight_kg' ? { opacity: 0.3 } : undefined
+    areaStyle: selectedMetric.value === 'weight_kg' ? { opacity: 0.3 } : undefined,
+    connectNulls: false,
+    markArea: normalRange ? {
+      silent: true,
+      itemStyle: {
+        color: '#67C23A',
+        opacity: 0.1
+      },
+      data: [[
+        { yAxis: normalRange[0] },
+        { yAxis: normalRange[1] }
+      ]]
+    } : undefined,
+    markLine: warningThreshold ? {
+      silent: true,
+      symbol: 'none',
+      data: [
+        { yAxis: warningThreshold }
+      ],
+      lineStyle: {
+        color: '#F56C6C',
+        type: 'dashed',
+        width: 2
+      },
+      label: {
+        show: true,
+        position: 'end',
+        formatter: '警告阈值: {c}'
+      }
+    } : undefined
   }]
 
-  if (showPrediction.value && predictionData.value?.dates && predictionData.value?.values) {
-    const allDates = [...dates, ...predictionData.value.dates]
-    const allValues = [...values, ...predictionData.value.values]
+  // 添加历史预测值对比
+  if (predictionData.value?.historical && predictionData.value.historical.dates) {
+    const histDates = predictionData.value.historical.dates.map(d => new Date(d).getTime())
+    const histActuals = predictionData.value.historical.actuals
+    const histPreds = predictionData.value.historical.predictions
     
     series.push({
-      name: '预测',
-      data: allValues,
+      name: '历史实际值',
+      data: histDates.map((d, i) => [d, histActuals[i]]),
+      type: 'scatter',
+      itemStyle: { color: '#67C23A', symbolSize: 8 }
+    })
+    
+    series.push({
+      name: '历史预测值',
+      data: histDates.map((d, i) => [d, histPreds[i]]),
+      type: 'scatter',
+      itemStyle: { color: '#F56C6C', symbolSize: 8 }
+    })
+  }
+
+  if (showPrediction.value && predictionData.value?.dates && predictionData.value?.values) {
+    // 计算预测日期，从历史数据的最后一天开始
+    const lastDate = dates[dates.length - 1]
+    const predictionDates = []
+    
+    for (let i = 0; i < predictionData.value.values.length; i++) {
+      const date = new Date(lastDate)
+      date.setDate(date.getDate() + i + 1)
+      predictionDates.push(date.getTime())
+    }
+    
+    // 创建连接历史数据和预测数据的完整线
+    const allDates = [lastDate, ...predictionDates]
+    const allValues = [values[values.length - 1], ...predictionData.value.values]
+    
+    series.push({
+      name: `预测${metricLabels[selectedMetric.value]}`,
+      data: allValues.map((v, i) => [allDates[i], v]),
       type: 'line',
       smooth: true,
       itemStyle: { color: '#E6A23C' },
-      lineStyle: { type: 'dashed' }
+      lineStyle: { type: 'dashed' },
+      connectNulls: false
     })
     
+    // 添加95%置信区间
+    if (predictionData.value.lowerBound && predictionData.value.upperBound) {
+      // 创建连接历史数据和预测数据的置信区间
+      const lowerData = []
+      const upperData = []
+      
+      // 添加历史数据的最后一个点（使用相同的值作为置信区间的起点）
+      const lastValue = values[values.length - 1]
+      lowerData.push([lastDate, lastValue])
+      upperData.push([lastDate, lastValue])
+      
+      // 添加预测数据的置信区间
+      for (let i = 0; i < predictionData.value.lowerBound.length; i++) {
+        lowerData.push([predictionDates[i], predictionData.value.lowerBound[i]])
+        upperData.push([predictionDates[i], predictionData.value.upperBound[i]])
+      }
+      
+      // 合并上下边界数据，形成闭合区域
+      const areaData = [...lowerData, ...upperData.reverse()]
+      
+      series.push({
+        name: '95%置信区间',
+        data: areaData,
+        type: 'line',
+        showSymbol: false,
+        lineStyle: { opacity: 0 },
+        areaStyle: {
+          color: '#E6A23C',
+          opacity: 0.2
+        },
+        connectNulls: false
+      })
+    }
+    
     chart.setOption({
-      tooltip: { trigger: 'axis' },
-      xAxis: { type: 'category', data: allDates },
-      yAxis: { type: 'value', name: metricUnits[selectedMetric.value] },
+      tooltip: { 
+        trigger: 'axis',
+        formatter: function(params) {
+          let result = ''
+          params.forEach(param => {
+            const date = new Date(param.value[0])
+            const year = date.getFullYear()
+            const month = String(date.getMonth() + 1).padStart(2, '0')
+            const day = String(date.getDate()).padStart(2, '0')
+            const weekday = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][date.getDay()]
+            result += `${year}年${month}月${day}日 ${weekday}<br/>`
+            result += `${param.seriesName}: ${param.value[1].toFixed(2)} ${metricUnits[selectedMetric.value]}<br/>`
+          })
+          return result
+        }
+      },
+      xAxis: { 
+        type: 'time',
+        min: dates[0],
+        max: predictionDates.length > 0 ? predictionDates[predictionDates.length - 1] : dates[dates.length - 1]
+      },
+      yAxis: yAxisConfig,
       legend: { data: series.map(s => s.name) },
       series
     })
+    
+    // 添加点击事件监听器
+    chart.on('click', function(params) {
+      if (params.componentType === 'series' && params.seriesName.includes('预测')) {
+        showPredictionDetail(params)
+      }
+    })
   } else {
     chart.setOption({
-      tooltip: { trigger: 'axis' },
-      xAxis: { type: 'category', data: dates },
-      yAxis: { type: 'value', name: metricUnits[selectedMetric.value] },
+      tooltip: { 
+        trigger: 'axis',
+        formatter: function(params) {
+          let result = ''
+          params.forEach(param => {
+            const date = new Date(param.value[0])
+            result += `${date.toLocaleDateString('zh-CN')}<br/>`
+            result += `${param.seriesName}: ${param.value[1].toFixed(2)}<br/>`
+          })
+          return result
+        }
+      },
+      xAxis: { 
+        type: 'time',
+        min: dates[0],
+        max: dates[dates.length - 1]
+      },
+      yAxis: yAxisConfig,
       legend: { data: series.map(s => s.name) },
       series
     })
   }
+}
+
+// 显示预测点详细信息
+function showPredictionDetail(params) {
+  const date = new Date(params.value[0])
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const weekday = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][date.getDay()]
+  const value = params.value[1]
+  const unit = metricUnits[selectedMetric.value]
+  
+  // 获取正常范围和警告阈值
+  let normalRange = null
+  let warningThreshold = null
+  
+  switch (selectedMetric.value) {
+    case 'weight_kg':
+      normalRange = [50, 75]
+      warningThreshold = 85
+      break
+    case 'systolic':
+      normalRange = [90, 139]
+      warningThreshold = 140
+      break
+    case 'diastolic':
+      normalRange = [60, 89]
+      warningThreshold = 90
+      break
+    case 'heart_rate':
+      normalRange = [60, 100]
+      warningThreshold = 100
+      break
+    case 'blood_glucose':
+      normalRange = [3.9, 6.1]
+      warningThreshold = 7.0
+      break
+  }
+  
+  // 判断是否在正常范围内
+  let status = '正常'
+  let statusType = 'success'
+  if (value > warningThreshold) {
+    status = '警告：超过阈值'
+    statusType = 'error'
+  } else if (value < normalRange[0] || value > normalRange[1]) {
+    status = '注意：超出正常范围'
+    statusType = 'warning'
+  }
+  
+  // 获取置信区间
+  let confidenceInterval = null
+  if (predictionData.value?.lowerBound && predictionData.value?.upperBound) {
+    const predictionIndex = predictionData.value.values.indexOf(value)
+    if (predictionIndex !== -1) {
+      confidenceInterval = {
+        lower: predictionData.value.lowerBound[predictionIndex],
+        upper: predictionData.value.upperBound[predictionIndex]
+      }
+    }
+  }
+  
+  // 构建详情内容
+  let detailContent = `
+    <div style="padding: 15px;">
+      <h3 style="margin: 0 0 15px 0; color: #303133;">${year}年${month}月${day}日 ${weekday}</h3>
+      <div style="margin-bottom: 10px;">
+        <strong>预测值：</strong>${value.toFixed(2)} ${unit}
+      </div>
+      <div style="margin-bottom: 10px;">
+        <strong>状态：</strong>
+        <el-tag type="${statusType}" effect="dark">${status}</el-tag>
+      </div>
+  `
+  
+  if (confidenceInterval) {
+    detailContent += `
+      <div style="margin-bottom: 10px;">
+        <strong>95%置信区间：</strong>
+        <span style="color: #909399;">[${confidenceInterval.lower.toFixed(2)}, ${confidenceInterval.upper.toFixed(2)}]</span>
+      </div>
+      <div style="margin-bottom: 10px;">
+        <strong>区间宽度：</strong>
+        <span style="color: #909399;">${(confidenceInterval.upper - confidenceInterval.lower).toFixed(2)} ${unit}</span>
+      </div>
+    `
+  }
+  
+  if (normalRange) {
+    detailContent += `
+      <div style="margin-bottom: 10px;">
+        <strong>正常范围：</strong>
+        <span style="color: #67C23A;">[${normalRange[0]}, ${normalRange[1]}] ${unit}</span>
+      </div>
+    `
+  }
+  
+  if (warningThreshold) {
+    detailContent += `
+      <div style="margin-bottom: 10px;">
+        <strong>警告阈值：</strong>
+        <span style="color: #F56C6C;">${warningThreshold} ${unit}</span>
+      </div>
+    `
+  }
+  
+  detailContent += `
+      <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #EBEEF5;">
+        <div style="font-size: 12px; color: #909399;">
+          <div><strong>说明：</strong></div>
+          <div>• 95%置信区间表示预测值有95%的概率落在该区间内</div>
+          <div>• 区间宽度越窄，模型预测越精确</div>
+          <div>• 超过警告阈值时建议咨询医生</div>
+        </div>
+      </div>
+    </div>
+  `
+  
+  ElMessageBox.alert(detailContent, '预测详情', {
+    dangerouslyUseHTMLString: true,
+    confirmButtonText: '关闭',
+    customClass: 'prediction-detail-dialog'
+  })
 }
 
 // 数据预处理
@@ -242,46 +589,20 @@ async function handlePreprocessData() {
   }
 }
 
-// 训练GRU模型
-async function handleTrainModel() {
+// 数据处理和预测关联
+async function handleDataCleaningAndPredict() {
   try {
-    await ElMessageBox.confirm(
-      '确定要训练GRU模型吗？此操作将使用历史数据训练预测模型，可能需要几分钟时间。',
-      '确认操作',
-      {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning'
-      }
-    )
-
-    trainingModel.value = true
-    const { data } = await api.post('/gru-model/train/', {
-      metrics: ['weight_kg', 'systolic', 'diastolic', 'heart_rate', 'blood_glucose']
-    })
+    // 先进行数据清洗
+    await handleCleanAllData()
     
-    ElMessage.success('模型训练完成')
+    // 然后加载预测
+    await loadPrediction()
     
-    if (data.results && data.results[selectedMetric.value]) {
-      const metricResult = data.results[selectedMetric.value]
-      modelMetrics.value = metricResult.metrics
-      operationResults.value.unshift({
-        message: `${metricLabels[selectedMetric.value]}模型训练完成`,
-        type: 'success',
-        details: [
-          `MAE: ${metricResult.metrics.MAE.toFixed(4)}`,
-          `RMSE: ${metricResult.metrics.RMSE.toFixed(4)}`,
-          `R2: ${metricResult.metrics.R2.toFixed(4)}`,
-          `MAPE: ${metricResult.metrics.MAPE.toFixed(2)}%`
-        ]
-      })
-    }
+    ElMessage.success('数据清洗完成并已生成预测')
   } catch (error) {
     if (error !== 'cancel') {
-      ElMessage.error('模型训练失败：' + (error.response?.data?.error || error.message))
+      ElMessage.error('操作失败：' + (error.message || '未知错误'))
     }
-  } finally {
-    trainingModel.value = false
   }
 }
 
@@ -448,6 +769,17 @@ async function handleFixMissingValues() {
   }
 }
 
+// 处理时间范围变化
+function handleDateRangeChange(range) {
+  if (range && range.length === 2) {
+    startTime.value = range[0].toISOString().split('T')[0]
+    endTime.value = range[1].toISOString().split('T')[0]
+  } else {
+    startTime.value = ''
+    endTime.value = ''
+  }
+}
+
 // 验证数据质量
 async function handleValidateData() {
   validating.value = true
@@ -573,10 +905,10 @@ onUnmounted(() => {
         </div>
 
         <div class="data-processing-section">
-          <h4 class="section-title">模型训练</h4>
-          <el-button type="success" @click="handleTrainModel" :loading="trainingModel">
+          <h4 class="section-title">数据清洗与预测</h4>
+          <el-button type="success" @click="handleDataCleaningAndPredict" :loading="cleaningAll || loading">
             <el-icon><DataAnalysis /></el-icon>
-            训练GRU模型
+            数据清洗 → 显示预测
           </el-button>
         </div>
 
@@ -676,35 +1008,7 @@ onUnmounted(() => {
         </el-collapse>
       </div>
 
-      <div v-if="modelMetrics" class="model-metrics">
-        <h4 class="metrics-title">模型准确度指标</h4>
-        <el-row :gutter="20">
-          <el-col :span="6">
-            <el-card class="metric-card">
-              <div class="metric-value">{{ modelMetrics.MAE.toFixed(4) }}</div>
-              <div class="metric-label">MAE (平均绝对误差)</div>
-            </el-card>
-          </el-col>
-          <el-col :span="6">
-            <el-card class="metric-card">
-              <div class="metric-value">{{ modelMetrics.RMSE.toFixed(4) }}</div>
-              <div class="metric-label">RMSE (均方根误差)</div>
-            </el-card>
-          </el-col>
-          <el-col :span="6">
-            <el-card class="metric-card">
-              <div class="metric-value">{{ modelMetrics.R2.toFixed(4) }}</div>
-              <div class="metric-label">R2 (决定系数)</div>
-            </el-card>
-          </el-col>
-          <el-col :span="6">
-            <el-card class="metric-card">
-              <div class="metric-value">{{ modelMetrics.MAPE.toFixed(2) }}%</div>
-              <div class="metric-label">MAPE (平均绝对百分比误差)</div>
-            </el-card>
-          </el-col>
-        </el-row>
-      </div>
+
 
       <div v-if="validationResults" class="validation-results">
         <el-row :gutter="20">
@@ -750,6 +1054,19 @@ onUnmounted(() => {
             <el-option label="心率" value="heart_rate" />
             <el-option label="血糖" value="blood_glucose" />
           </el-select>
+        </div>
+
+        <div class="time-range-selector">
+          <label>时间范围:</label>
+          <el-date-picker
+            v-model="dateRange"
+            type="daterange"
+            range-separator="至"
+            start-placeholder="开始日期"
+            end-placeholder="结束日期"
+            @change="handleDateRangeChange"
+            style="width: 240px;"
+          />
         </div>
 
         <div class="prediction-controls">
@@ -844,7 +1161,9 @@ onUnmounted(() => {
 
 <style scoped>
 .page-container { padding: 20px; }
-.controls { display: flex; gap: 12px; align-items: center; }
+.controls { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.metric-selector, .time-range-selector { display: flex; gap: 10px; align-items: center; }
+.prediction-controls { display: flex; gap: 10px; align-items: center; }
 .chart-card { margin-top: 16px; }
 .chart-container { height: 360px; }
 .no-data { height: 360px; display: flex; align-items: center; justify-content: center; }

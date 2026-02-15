@@ -27,9 +27,9 @@ def forecast_metric(user_id: int, metric: str, horizon: int = 30) -> Dict:
     """
     Forecast a health metric for a user using time series analysis.
     
-    This function attempts to use sophisticated forecasting models (ARIMA/ETS)
+    This function attempts to use sophisticated forecasting models
     when sufficient data is available, and falls back to simpler methods
-    (moving average, linear regression) for limited data.
+    for limited data.
     
     Args:
         user_id: User ID to forecast metrics for
@@ -70,7 +70,7 @@ def forecast_metric(user_id: int, metric: str, horizon: int = 30) -> Dict:
     if len(historical_data) == 0:
         raise RuntimeError(f"No historical data available for metric '{metric}'")
     
-    # Choose forecasting method based on data availability
+    # Choose forecasting method based on data availability and metric type
     n_points = len(historical_data)
     
     try:
@@ -90,9 +90,42 @@ def forecast_metric(user_id: int, metric: str, horizon: int = 30) -> Dict:
             result['message'] = f"Moderate history ({n_points} points). Using linear regression."
             
         else:
-            # Sufficient data - try advanced methods with fallback
+            # Sufficient data - choose model based on metric type
             try:
-                result = _forecast_advanced(historical_data, horizon)
+                # 根据指标类型选择合适的模型
+                if metric in ['heart_rate']:  # 短期平稳指标（如心率、脉搏）
+                    # 使用指数平滑（Holt-Winters）
+                    result = _forecast_advanced(historical_data, horizon, model_type='exponential_smoothing')
+                    result['model_type'] = 'Exponential Smoothing'  # 短期平稳指标推荐模型
+                elif metric in ['weight_kg']:  # 有趋势或周期性指标（如体重）
+                    # 使用LSTM
+                    try:
+                        result = _forecast_lstm(historical_data, horizon)
+                        result['model_type'] = 'LSTM'  # 有趋势指标推荐模型
+                    except Exception as e:
+                        logger.warning(f"LSTM forecasting failed for user {user_id}, metric {metric}: {e}")
+                        # Fallback to exponential smoothing
+                        result = _forecast_advanced(historical_data, horizon, model_type='exponential_smoothing')
+                        result['model_type'] = 'Exponential Smoothing (Fallback)'
+                elif metric in ['systolic', 'diastolic', 'blood_glucose']:  # 血压血糖
+                    # 使用LSTM + Attention
+                    try:
+                        result = _forecast_lstm_attention(historical_data, horizon)
+                        result['model_type'] = 'LSTM + Attention'  # 血压血糖推荐模型
+                    except Exception as e:
+                        logger.warning(f"LSTM + Attention forecasting failed for user {user_id}, metric {metric}: {e}")
+                        # Fallback to LSTM
+                        try:
+                            result = _forecast_lstm(historical_data, horizon)
+                            result['model_type'] = 'LSTM (Fallback)'
+                        except Exception as e2:
+                            logger.warning(f"LSTM forecasting also failed: {e2}")
+                            # Fallback to exponential smoothing
+                            result = _forecast_advanced(historical_data, horizon, model_type='exponential_smoothing')
+                            result['model_type'] = 'Exponential Smoothing (Fallback)'
+                else:
+                    # 默认使用高级方法
+                    result = _forecast_advanced(historical_data, horizon)
             except Exception as e:
                 logger.warning(f"Advanced forecasting failed for user {user_id}, metric {metric}: {e}")
                 # Fallback to linear regression
@@ -306,15 +339,16 @@ def _forecast_linear_regression(df: pd.DataFrame, horizon: int) -> Dict:
     }
 
 
-def _forecast_advanced(df: pd.DataFrame, horizon: int) -> Dict:
+def _forecast_advanced(df: pd.DataFrame, horizon: int, model_type='auto') -> Dict:
     """
-    Forecast using advanced time series models (ARIMA or ETS).
+    Forecast using advanced time series models.
     
     Used when sufficient data is available (>= 10 points).
     
     Args:
         df: DataFrame with historical data
         horizon: Number of days to forecast
+        model_type: Type of model to use ('auto', 'arima', 'exponential_smoothing', 'lstm', 'prophet')
     
     Returns:
         Forecast dictionary
@@ -328,34 +362,9 @@ def _forecast_advanced(df: pd.DataFrame, horizon: int) -> Dict:
     values = df['value'].values
     last_date = df['date'].iloc[-1]
     
-    # Try Exponential Smoothing first (more robust)
-    try:
-        model = ExponentialSmoothing(
-            values,
-            trend='add',
-            seasonal=None,  # Not enough data for seasonality
-            damped_trend=True
-        )
-        fitted_model = model.fit(optimized=True)
-        
-        # Generate forecast
-        forecast_result = fitted_model.forecast(steps=horizon)
-        forecast = forecast_result.tolist()
-        
-        # Get prediction intervals (simulate if not directly available)
-        # Use residuals to estimate confidence intervals
-        residuals = fitted_model.fittedvalues - values[:-1] if len(fitted_model.fittedvalues) < len(values) else fitted_model.fittedvalues - values
-        residual_std = np.std(residuals)
-        
-        confidence_lower = [forecast[i] - 1.96 * residual_std * np.sqrt(i + 1) for i in range(horizon)]
-        confidence_upper = [forecast[i] + 1.96 * residual_std * np.sqrt(i + 1) for i in range(horizon)]
-        
-        model_type = 'exponential_smoothing'
-        
-    except Exception as e:
-        logger.debug(f"Exponential smoothing failed, trying ARIMA: {e}")
-        
-        # Try ARIMA as alternative
+    # 根据指定的模型类型选择预测方法
+    if model_type == 'arima' or (model_type == 'auto' and len(values) >= 15):
+        # 尝试ARIMA模型
         try:
             # Use auto-selected order with simple (1,1,1) as default
             model = ARIMA(values, order=(1, 1, 1))
@@ -374,9 +383,156 @@ def _forecast_advanced(df: pd.DataFrame, horizon: int) -> Dict:
             
             model_type = 'arima'
             
-        except Exception as e2:
-            logger.debug(f"ARIMA also failed: {e2}")
-            raise Exception(f"Both ETS and ARIMA failed: ETS={e}, ARIMA={e2}")
+        except Exception as e:
+            logger.debug(f"ARIMA failed, falling back to exponential smoothing: {e}")
+            # 回退到指数平滑
+            model = ExponentialSmoothing(
+                values,
+                trend='add',
+                seasonal=None,  # Not enough data for seasonality
+                damped_trend=True
+            )
+            fitted_model = model.fit(optimized=True)
+            
+            # Generate forecast
+            forecast_result = fitted_model.forecast(steps=horizon)
+            forecast = forecast_result.tolist()
+            
+            # Get prediction intervals (simulate if not directly available)
+            # Use residuals to estimate confidence intervals
+            residuals = fitted_model.fittedvalues - values[:-1] if len(fitted_model.fittedvalues) < len(values) else fitted_model.fittedvalues - values
+            residual_std = np.std(residuals)
+            
+            confidence_lower = [forecast[i] - 1.96 * residual_std * np.sqrt(i + 1) for i in range(horizon)]
+            confidence_upper = [forecast[i] + 1.96 * residual_std * np.sqrt(i + 1) for i in range(horizon)]
+            
+            model_type = 'exponential_smoothing'
+            
+    elif model_type == 'prophet' or (model_type == 'auto' and len(values) >= 20):
+        # 尝试Prophet模型（如果安装了）
+        try:
+            from prophet import Prophet
+            
+            # Prepare data for Prophet
+            prophet_df = df.rename(columns={'date': 'ds', 'value': 'y'})
+            
+            # Fit Prophet model
+            model = Prophet(daily_seasonality=False, weekly_seasonality=False, yearly_seasonality=False)
+            model.fit(prophet_df)
+            
+            # Create future dataframe
+            future = model.make_future_dataframe(periods=horizon, freq='D')
+            
+            # Generate forecast
+            forecast_result = model.predict(future)
+            
+            # Extract forecast values and confidence intervals
+            forecast = forecast_result['yhat'].tail(horizon).tolist()
+            confidence_lower = forecast_result['yhat_lower'].tail(horizon).tolist()
+            confidence_upper = forecast_result['yhat_upper'].tail(horizon).tolist()
+            
+            model_type = 'prophet'
+            
+        except ImportError:
+            logger.debug("Prophet not installed, falling back to exponential smoothing")
+            # 回退到指数平滑
+            model = ExponentialSmoothing(
+                values,
+                trend='add',
+                seasonal=None,  # Not enough data for seasonality
+                damped_trend=True
+            )
+            fitted_model = model.fit(optimized=True)
+            
+            # Generate forecast
+            forecast_result = fitted_model.forecast(steps=horizon)
+            forecast = forecast_result.tolist()
+            
+            # Get prediction intervals (simulate if not directly available)
+            # Use residuals to estimate confidence intervals
+            residuals = fitted_model.fittedvalues - values[:-1] if len(fitted_model.fittedvalues) < len(values) else fitted_model.fittedvalues - values
+            residual_std = np.std(residuals)
+            
+            confidence_lower = [forecast[i] - 1.96 * residual_std * np.sqrt(i + 1) for i in range(horizon)]
+            confidence_upper = [forecast[i] + 1.96 * residual_std * np.sqrt(i + 1) for i in range(horizon)]
+            
+            model_type = 'exponential_smoothing'
+            
+        except Exception as e:
+            logger.debug(f"Prophet failed, falling back to exponential smoothing: {e}")
+            # 回退到指数平滑
+            model = ExponentialSmoothing(
+                values,
+                trend='add',
+                seasonal=None,  # Not enough data for seasonality
+                damped_trend=True
+            )
+            fitted_model = model.fit(optimized=True)
+            
+            # Generate forecast
+            forecast_result = fitted_model.forecast(steps=horizon)
+            forecast = forecast_result.tolist()
+            
+            # Get prediction intervals (simulate if not directly available)
+            # Use residuals to estimate confidence intervals
+            residuals = fitted_model.fittedvalues - values[:-1] if len(fitted_model.fittedvalues) < len(values) else fitted_model.fittedvalues - values
+            residual_std = np.std(residuals)
+            
+            confidence_lower = [forecast[i] - 1.96 * residual_std * np.sqrt(i + 1) for i in range(horizon)]
+            confidence_upper = [forecast[i] + 1.96 * residual_std * np.sqrt(i + 1) for i in range(horizon)]
+            
+            model_type = 'exponential_smoothing'
+            
+    else:
+        # 默认使用指数平滑（更稳健）
+        try:
+            model = ExponentialSmoothing(
+                values,
+                trend='add',
+                seasonal=None,  # Not enough data for seasonality
+                damped_trend=True
+            )
+            fitted_model = model.fit(optimized=True)
+            
+            # Generate forecast
+            forecast_result = fitted_model.forecast(steps=horizon)
+            forecast = forecast_result.tolist()
+            
+            # Get prediction intervals (simulate if not directly available)
+            # Use residuals to estimate confidence intervals
+            residuals = fitted_model.fittedvalues - values[:-1] if len(fitted_model.fittedvalues) < len(values) else fitted_model.fittedvalues - values
+            residual_std = np.std(residuals)
+            
+            confidence_lower = [forecast[i] - 1.96 * residual_std * np.sqrt(i + 1) for i in range(horizon)]
+            confidence_upper = [forecast[i] + 1.96 * residual_std * np.sqrt(i + 1) for i in range(horizon)]
+            
+            model_type = 'exponential_smoothing'
+            
+        except Exception as e:
+            logger.debug(f"Exponential smoothing failed, trying ARIMA: {e}")
+            
+            # Try ARIMA as alternative
+            try:
+                # Use auto-selected order with simple (1,1,1) as default
+                model = ARIMA(values, order=(1, 1, 1))
+                fitted_model = model.fit()
+                
+                # Generate forecast with confidence intervals
+                forecast_result = fitted_model.forecast(steps=horizon)
+                forecast = forecast_result.tolist()
+                
+                # Get confidence intervals
+                forecast_obj = fitted_model.get_forecast(steps=horizon)
+                conf_int = forecast_obj.conf_int(alpha=0.05)
+                
+                confidence_lower = conf_int.iloc[:, 0].tolist()
+                confidence_upper = conf_int.iloc[:, 1].tolist()
+                
+                model_type = 'arima'
+                
+            except Exception as e2:
+                logger.debug(f"ARIMA also failed: {e2}")
+                raise Exception(f"Both ETS and ARIMA failed: ETS={e}, ARIMA={e2}")
     
     # Generate forecast dates
     forecast_dates = [last_date + timedelta(days=i+1) for i in range(horizon)]
@@ -482,4 +638,184 @@ def validate_forecast_quality(user_id: int, metric: str, test_days: int = 7) -> 
         'n_train': len(train_df),
         'n_test': len(test_df),
         'model_type': forecast_result['model_type']
+    }
+
+
+def _create_sequences(data, seq_length):
+    """
+    Create sequences for LSTM input
+    
+    Args:
+        data: Array of values
+        seq_length: Length of each sequence
+    
+    Returns:
+        X: Input sequences
+        y: Target values
+    """
+    X, y = [], []
+    for i in range(len(data) - seq_length):
+        X.append(data[i:i+seq_length])
+        y.append(data[i+seq_length])
+    return np.array(X), np.array(y)
+
+
+def _forecast_lstm(df, horizon):
+    """
+    Forecast using LSTM model
+    
+    Args:
+        df: DataFrame with historical data
+        horizon: Number of days to forecast
+    
+    Returns:
+        Forecast dictionary
+    """
+    from tensorflow.keras.models import Sequential
+    from tensorflow.keras.layers import LSTM, Dense, Dropout
+    from tensorflow.keras.optimizers import Adam
+    
+    values = df['value'].values
+    last_date = df['date'].iloc[-1]
+    
+    # Normalize data
+    mean = np.mean(values)
+    std = np.std(values)
+    normalized_values = (values - mean) / std
+    
+    # Create sequences
+    seq_length = 7  # Use 7 days of history
+    X, y = _create_sequences(normalized_values, seq_length)
+    
+    # Reshape for LSTM input (samples, time steps, features)
+    X = X.reshape((X.shape[0], X.shape[1], 1))
+    
+    # Build LSTM model
+    model = Sequential()
+    model.add(LSTM(50, return_sequences=True, input_shape=(seq_length, 1)))
+    model.add(Dropout(0.2))
+    model.add(LSTM(50))
+    model.add(Dropout(0.2))
+    model.add(Dense(1))
+    
+    # Compile model
+    model.compile(optimizer=Adam(learning_rate=0.001), loss='mse')
+    
+    # Train model
+    model.fit(X, y, epochs=50, batch_size=32, verbose=0)
+    
+    # Generate forecast
+    forecast = []
+    current_seq = normalized_values[-seq_length:].reshape((1, seq_length, 1))
+    
+    for _ in range(horizon):
+        next_val = model.predict(current_seq, verbose=0)[0][0]
+        forecast.append(next_val)
+        # Update sequence for next prediction
+        current_seq = np.roll(current_seq, -1, axis=1)
+        current_seq[0, -1, 0] = next_val
+    
+    # Denormalize forecast
+    forecast = np.array(forecast) * std + mean
+    
+    # Generate forecast dates
+    forecast_dates = [last_date + timedelta(days=i+1) for i in range(horizon)]
+    
+    # Calculate confidence intervals (simple approach using standard deviation)
+    residual_std = std * 0.1  # Assume 10% of data std as prediction uncertainty
+    confidence_lower = forecast - 1.96 * residual_std
+    confidence_upper = forecast + 1.96 * residual_std
+    
+    return {
+        'forecast': forecast.tolist(),
+        'confidence_lower': confidence_lower.tolist(),
+        'confidence_upper': confidence_upper.tolist(),
+        'dates': [d.strftime('%Y-%m-%d') for d in forecast_dates],
+        'model_type': 'LSTM'
+    }
+
+
+def _forecast_lstm_attention(df, horizon):
+    """
+    Forecast using LSTM with Attention mechanism
+    
+    Args:
+        df: DataFrame with historical data
+        horizon: Number of days to forecast
+    
+    Returns:
+        Forecast dictionary
+    """
+    from tensorflow.keras.models import Model
+    from tensorflow.keras.layers import Input, LSTM, Dense, Dropout, Attention
+    from tensorflow.keras.optimizers import Adam
+    
+    values = df['value'].values
+    last_date = df['date'].iloc[-1]
+    
+    # Normalize data
+    mean = np.mean(values)
+    std = np.std(values)
+    normalized_values = (values - mean) / std
+    
+    # Create sequences
+    seq_length = 10  # Use 10 days of history for attention
+    X, y = _create_sequences(normalized_values, seq_length)
+    
+    # Reshape for LSTM input (samples, time steps, features)
+    X = X.reshape((X.shape[0], X.shape[1], 1))
+    
+    # Build LSTM with Attention model
+    inputs = Input(shape=(seq_length, 1))
+    
+    # LSTM layers
+    lstm_out = LSTM(64, return_sequences=True)(inputs)
+    lstm_out = Dropout(0.2)(lstm_out)
+    lstm_out = LSTM(64, return_sequences=True)(lstm_out)
+    lstm_out = Dropout(0.2)(lstm_out)
+    
+    # Attention mechanism
+    attention = Attention()([lstm_out, lstm_out])
+    
+    # Flatten and dense layers
+    attention_flat = Dense(32, activation='relu')(attention)
+    output = Dense(1)(attention_flat)
+    
+    # Create model
+    model = Model(inputs=inputs, outputs=output)
+    
+    # Compile model
+    model.compile(optimizer=Adam(learning_rate=0.001), loss='mse')
+    
+    # Train model
+    model.fit(X, y, epochs=50, batch_size=32, verbose=0)
+    
+    # Generate forecast
+    forecast = []
+    current_seq = normalized_values[-seq_length:].reshape((1, seq_length, 1))
+    
+    for _ in range(horizon):
+        next_val = model.predict(current_seq, verbose=0)[0][0]
+        forecast.append(next_val)
+        # Update sequence for next prediction
+        current_seq = np.roll(current_seq, -1, axis=1)
+        current_seq[0, -1, 0] = next_val
+    
+    # Denormalize forecast
+    forecast = np.array(forecast) * std + mean
+    
+    # Generate forecast dates
+    forecast_dates = [last_date + timedelta(days=i+1) for i in range(horizon)]
+    
+    # Calculate confidence intervals (simple approach using standard deviation)
+    residual_std = std * 0.08  # Assume 8% of data std as prediction uncertainty (more accurate with attention)
+    confidence_lower = forecast - 1.96 * residual_std
+    confidence_upper = forecast + 1.96 * residual_std
+    
+    return {
+        'forecast': forecast.tolist(),
+        'confidence_lower': confidence_lower.tolist(),
+        'confidence_upper': confidence_upper.tolist(),
+        'dates': [d.strftime('%Y-%m-%d') for d in forecast_dates],
+        'model_type': 'LSTM + Attention'
     }

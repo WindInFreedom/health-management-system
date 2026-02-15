@@ -104,13 +104,27 @@ const handleLogin = async () => {
   justify-content: center;
   padding: 32px;
   min-height: 100vh;
-  background: linear-gradient(180deg, #f7fbff, #ffffff);
+  background: transparent;
+  position: relative;
+  overflow: hidden;
 }
 
+
+
 .login-card {
-  width: 520px;
-  border-radius: 12px;
-  box-shadow: 0 8px 30px rgba(31, 110, 235, 0.07);
+  width: 480px;
+  border-radius: 16px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  z-index: 1;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.login-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
 }
 
 .header-wrap {
@@ -118,34 +132,93 @@ const handleLogin = async () => {
   flex-direction: column;
   align-items: center;
   text-align: center;
+  padding: 20px 0;
 }
 
 .sys-title {
   margin: 0;
   font-size: 28px;
-  color: #1f6feb;
-  font-weight: 600;
+  color: #ffffff;
+  font-weight: 700;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .subtitle {
-  margin: 6px 0 0;
-  color: #6b7280;
-  font-size: 14px;
+  margin: 12px 0 0;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 16px;
+  line-height: 1.4;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 .login-form {
-  padding: 8px 6px 22px 6px;
+  padding: 20px 30px 30px;
 }
 
 .input-large ::v-deep .el-input__inner {
   font-size: 16px;
-  padding: 12px;
-  border-radius: 8px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  transition: all 0.3s ease;
+}
+
+.input-large ::v-deep .el-input__inner::placeholder {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.input-large ::v-deep .el-input__inner:focus {
+  border-color: rgba(255, 255, 255, 0.5);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* 链接颜色 */
+.el-button--text {
+  color: rgba(255, 255, 255, 0.8) !important;
+}
+
+.el-button--text:hover {
+  color: #ffffff !important;
+  text-decoration: underline;
 }
 
 .btn-large {
   font-size: 16px;
-  padding: 12px 18px;
-  border-radius: 8px;
+  padding: 14px 20px;
+  border-radius: 10px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.btn-large:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .login-container {
+    padding: 20px;
+  }
+  
+  .login-card {
+    width: 100%;
+    max-width: 400px;
+  }
+  
+  .login-form {
+    padding: 20px 20px 30px;
+  }
+  
+  .sys-title {
+    font-size: 24px;
+  }
+  
+  .subtitle {
+    font-size: 14px;
+  }
 }
 </style>

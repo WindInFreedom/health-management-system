@@ -10,7 +10,7 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'health_management_system.settin
 django.setup()
 
 from django.contrib.auth import get_user_model
-from users.models import Profile
+from users.models import Profile, SleepLog, MoodLog
 from measurements.models import Measurement
 
 User = get_user_model()
@@ -240,43 +240,46 @@ class HealthDataGenerator:
     def _adjust_for_time_of_day(self, value, time_of_day, measurement_type):
         factors = {
             'morning': {
-                'systolic': 1.05,
-                'diastolic': 1.03,
-                'glucose': 1.15,
-                'heart_rate': 1.02,
+                'systolic': 1.02,
+                'diastolic': 1.01,
+                'glucose': 1.05,
+                'heart_rate': 1.01,
                 'weight': 1.0,
             },
             'afternoon': {
                 'systolic': 1.0,
                 'diastolic': 1.0,
-                'glucose': 0.95,
+                'glucose': 1.0,
                 'heart_rate': 1.0,
-                'weight': 0.99,
+                'weight': 1.0,
             },
             'evening': {
-                'systolic': 0.98,
-                'diastolic': 0.97,
-                'glucose': 0.9,
-                'heart_rate': 0.98,
-                'weight': 0.98,
+                'systolic': 0.99,
+                'diastolic': 0.99,
+                'glucose': 0.98,
+                'heart_rate': 0.99,
+                'weight': 1.0,
             }
         }
         return value * factors[time_of_day].get(measurement_type, 1.0)
 
     def _generate_weight(self, profile, day_offset):
         base_weight = profile['weight_baseline_kg']
-        variation = random.uniform(-2.0, 2.0)
-        seasonal_factor = 1.0 + 0.02 * (1 if day_offset > 180 else -1)
-        weight = base_weight + variation
+        # 减少波动范围，从±2.0kg改为±0.5kg
+        variation = random.uniform(-0.5, 0.5)
+        # 添加缓慢趋势，每天0.01kg的变化
+        trend = 0.01 * day_offset
+        seasonal_factor = 1.0 + 0.01 * (1 if day_offset > 180 else -1)
+        weight = base_weight + variation + trend
         weight = weight * seasonal_factor
         return round(weight, 1)
 
     def _generate_blood_pressure(self, profile, time_of_day):
         systolic = self._generate_measurement_value(
-            profile['base_systolic'], 0.15, min_value=90, max_value=180
+            profile['base_systolic'], 0.05, min_value=90, max_value=180
         )
         diastolic = self._generate_measurement_value(
-            profile['base_diastolic'], 0.12, min_value=60, max_value=120
+            profile['base_diastolic'], 0.05, min_value=60, max_value=120
         )
         
         systolic = self._adjust_for_time_of_day(systolic, time_of_day, 'systolic')
@@ -286,7 +289,8 @@ class HealthDataGenerator:
 
     def _generate_blood_glucose(self, profile, time_of_day):
         base_glucose = profile['base_glucose']
-        variation = random.uniform(0.8, 1.4)
+        # 减少波动范围，从0.8-1.4改为0.95-1.05
+        variation = random.uniform(0.95, 1.05)
         
         glucose = base_glucose * variation
         glucose = self._adjust_for_time_of_day(glucose, time_of_day, 'glucose')
@@ -298,7 +302,8 @@ class HealthDataGenerator:
 
     def _generate_heart_rate(self, profile, time_of_day):
         base_heart_rate = profile['base_heart_rate']
-        variation = random.uniform(0.85, 1.2)
+        # 减少波动范围，从0.85-1.2改为0.98-1.02
+        variation = random.uniform(0.98, 1.02)
         
         heart_rate = base_heart_rate * variation
         heart_rate = self._adjust_for_time_of_day(heart_rate, time_of_day, 'heart_rate')
@@ -355,6 +360,133 @@ class HealthDataGenerator:
         print(f"成功生成 {total_measurements} 条健康测量记录\n")
         return total_measurements
 
+    def generate_sleep_logs(self, users):
+        print("开始生成睡眠记录...")
+        
+        start_date = datetime(2025, 3, 1)
+        end_date = datetime(2025, 12, 31)
+        total_days = (end_date - start_date).days + 1
+        
+        total_sleep_logs = 0
+        
+        for user in users:
+            # 为每个用户设置基础睡眠时间（8-9小时）
+            base_sleep_hours = random.uniform(8, 9)
+            
+            for day_offset in range(total_days):
+                sleep_date = start_date + timedelta(days=day_offset)
+                
+                # 计算睡眠时间，基础上有小波动
+                sleep_hours = base_sleep_hours + random.uniform(-0.5, 0.5)
+                
+                # 10%的概率出现异常值
+                if random.random() < 0.1:
+                    if random.random() < 0.5:
+                        # 睡眠不足
+                        sleep_hours = random.uniform(5, 6.5)
+                    else:
+                        # 睡眠过多
+                        sleep_hours = random.uniform(10, 11.5)
+                
+                # 确保睡眠时间在合理范围内
+                sleep_hours = max(4, min(12, sleep_hours))
+                sleep_minutes = int(sleep_hours * 60)
+                
+                # 计算入睡和起床时间
+                # 通常在22:00-23:30之间入睡
+                sleep_hour = random.randint(22, 23)
+                sleep_minute = random.randint(0, 30)
+                start_time = datetime.combine(sleep_date, datetime.min.time()) + timedelta(hours=sleep_hour, minutes=sleep_minute)
+                
+                # 起床时间 = 入睡时间 + 睡眠时长
+                end_time = start_time + timedelta(minutes=sleep_minutes)
+                
+                # 根据睡眠时间计算睡眠质量评分
+                if 7 <= sleep_hours <= 9:
+                    quality_rating = random.randint(7, 9)
+                elif 6 <= sleep_hours < 7 or 9 < sleep_hours <= 10:
+                    quality_rating = random.randint(5, 7)
+                else:
+                    quality_rating = random.randint(3, 5)
+                
+                # 创建睡眠记录
+                sleep_log = SleepLog.objects.create(
+                    user=user,
+                    sleep_date=sleep_date.date(),
+                    start_time=start_time,
+                    end_time=end_time,
+                    duration_minutes=sleep_minutes,
+                    quality_rating=quality_rating
+                )
+                
+                total_sleep_logs += 1
+            
+            print(f"  ✓ 生成用户 {user.username} 的睡眠记录")
+        
+        print(f"成功生成 {total_sleep_logs} 条睡眠记录\n")
+        return total_sleep_logs
+
+    def generate_mood_logs(self, users):
+        print("开始生成心情记录...")
+        
+        start_date = datetime(2025, 3, 1)
+        end_date = datetime(2025, 12, 31)
+        total_days = (end_date - start_date).days + 1
+        
+        total_mood_logs = 0
+        
+        for user in users:
+            # 为每个用户设置基础心情评分（6-8分）
+            base_mood_rating = random.randint(6, 8)
+            
+            for day_offset in range(total_days):
+                log_date = start_date + timedelta(days=day_offset)
+                
+                # 计算心情评分，基础上有小波动
+                mood_rating = base_mood_rating + random.randint(-1, 1)
+                
+                # 10%的概率出现异常值
+                if random.random() < 0.1:
+                    if random.random() < 0.5:
+                        # 心情较差
+                        mood_rating = random.randint(3, 4)
+                    else:
+                        # 心情很好
+                        mood_rating = random.randint(9, 10)
+                
+                # 确保心情评分在1-10之间
+                mood_rating = max(1, min(10, mood_rating))
+                
+                # 检查前一天的睡眠质量，影响当天的心情
+                if day_offset > 0:
+                    prev_date = log_date - timedelta(days=1)
+                    prev_sleep = SleepLog.objects.filter(
+                        user=user,
+                        sleep_date=prev_date.date()
+                    ).first()
+                    
+                    if prev_sleep:
+                        # 睡眠质量好，心情+1
+                        if prev_sleep.quality_rating >= 8:
+                            mood_rating = min(10, mood_rating + 1)
+                        # 睡眠质量差，心情-1
+                        elif prev_sleep.quality_rating <= 4:
+                            mood_rating = max(1, mood_rating - 1)
+                
+                # 创建心情记录
+                mood_log = MoodLog.objects.create(
+                    user=user,
+                    log_date=log_date.date(),
+                    mood_rating=mood_rating
+                )
+                
+                total_mood_logs += 1
+            
+            print(f"  ✓ 生成用户 {user.username} 的心情记录")
+        
+        print(f"成功生成 {total_mood_logs} 条心情记录\n")
+        return total_mood_logs
+
     def generate_all_data(self):
         print("=" * 60)
         print("健康数据生成器")
@@ -367,14 +499,47 @@ class HealthDataGenerator:
             return
         
         measurements_count = self.generate_measurements(users)
+        sleep_logs_count = self.generate_sleep_logs(users)
+        mood_logs_count = self.generate_mood_logs(users)
         
         print("=" * 60)
         print(f"数据生成完成！")
         print(f"用户数量: {len(users)}")
         print(f"测量记录数量: {measurements_count}")
+        print(f"睡眠记录数量: {sleep_logs_count}")
+        print(f"心情记录数量: {mood_logs_count}")
+        print("=" * 60)
+
+    def generate_only_sleep_and_mood(self):
+        """
+        只生成睡眠和心情记录，不重新创建用户和测量记录
+        """
+        print("=" * 60)
+        print("生成睡眠和心情记录")
+        print("=" * 60)
+        print()
+        
+        # 获取所有现有用户
+        users = User.objects.filter(role='user')
+        if not users:
+            print("错误：未找到用户，请先运行完整的数据生成")
+            return
+        
+        print(f"找到 {len(users)} 个用户，开始生成睡眠和心情记录...")
+        print()
+        
+        sleep_logs_count = self.generate_sleep_logs(users)
+        mood_logs_count = self.generate_mood_logs(users)
+        
+        print("=" * 60)
+        print(f"睡眠和心情记录生成完成！")
+        print(f"用户数量: {len(users)}")
+        print(f"睡眠记录数量: {sleep_logs_count}")
+        print(f"心情记录数量: {mood_logs_count}")
         print("=" * 60)
 
 
 if __name__ == '__main__':
     generator = HealthDataGenerator()
-    generator.generate_all_data()
+    # 只生成睡眠和心情记录
+    generator.generate_only_sleep_and_mood()

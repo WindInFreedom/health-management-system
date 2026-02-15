@@ -19,7 +19,8 @@ from . import admin_views
 # 替换本地内容：导入扩展的健康视图
 from . import health_views
 from . import data_processing_views
-from . import gru_model_views
+# from . import gru_model_views
+from . import lgb_model_views
 
 from rest_framework.routers import DefaultRouter
 from .views import MeasurementViewSet
@@ -36,7 +37,6 @@ router.register(r'sleep-data-processing', data_processing_views.SleepDataProcess
 router.register(r'mood-data-processing', data_processing_views.MoodDataProcessingViewSet, basename='mood-data-processing')
 
 urlpatterns = [
-    # 传统的基于视图的路由（保留现有实现以兼容前端）
     path('measurements/', MeasurementListCreateView.as_view(), name='measurement-list-create'),
     path('measurements/<int:pk>/', MeasurementDetailView.as_view(), name='measurement-detail'),
     path('measurements/my-measurements/', my_measurements, name='my-measurements'),
@@ -44,25 +44,20 @@ urlpatterns = [
     path('measurements/predict/', predict_health_trends, name='predict-health-trends'),
     path('measurements/recommendations/', health_recommendations, name='health-recommendations'),
 
-    # Legacy report endpoints
     path('measurements/report/my/', my_report, name='my-report'),
     path('measurements/report/<int:user_id>/', report_for_user, name='report-for-user'),
     
-    # New health report endpoints with scoring
     path('health-report/', health_report, name='health-report'),
     path('health-report/<int:user_id>/', health_report_for_user, name='health-report-user'),
     
-    # Forecasting endpoint
     path('forecast/', forecast_health_metric, name='forecast-metric'),
 
-    # 协同过滤功能
     path('collaborative/recommendations/', collaborative_views.collaborative_recommendations, name='collaborative-recommendations'),
     path('collaborative/risk-prediction/', collaborative_views.health_risk_prediction, name='health-risk-prediction'),
     path('collaborative/personalized-recommendations/', collaborative_views.personalized_recommendations, name='personalized-recommendations'),
     path('collaborative/early-warnings/', collaborative_views.early_warning_alerts, name='early-warning-alerts'),
     path('collaborative/similar-users/', collaborative_views.similar_users_health_data, name='similar-users-health-data'),
 
-    # 管理员/医生专用API
     path('admin/all-measurements/', admin_views.all_measurements, name='all-measurements'),
     path('admin/statistics-all/', admin_views.health_statistics_all, name='health-statistics-all'),
     path('admin/alerts-all/', admin_views.health_alerts_all, name='health-alerts-all'),
@@ -70,14 +65,23 @@ urlpatterns = [
     path('admin/measurements/<int:measurement_id>/', admin_views.measurement_management, name='measurement-management'),
     path('admin/measurements/', admin_views.measurement_management, name='measurement-management-create'),
 
-    # 数据处理API
     path('data-processing/summary/', data_processing_views.data_processing_summary, name='data-processing-summary'),
     
-    # GRU模型API
-    path('gru-model/train/', gru_model_views.train_gru_model, name='gru-train-model'),
-    path('gru-model/metrics/', gru_model_views.get_model_metrics, name='gru-model-metrics'),
-    path('gru-model/predict/', gru_model_views.predict_with_model, name='gru-model-predict'),
-    path('gru-model/predict-all/', gru_model_views.predict_all_metrics, name='gru-model-predict-all'),
+    # path('gru-model/train/', gru_model_views.train_gru_model, name='gru-train-model'),
+    # path('gru-model/metrics/', gru_model_views.get_model_metrics, name='gru-model-metrics'),
+    # path('gru-model/predict/', gru_model_views.predict_with_model, name='gru-model-predict'),
+    # path('gru-model/predict-all/', gru_model_views.predict_all_metrics, name='gru-model-predict-all'),
+    
+    path('lgb-model/train/', lgb_model_views.train_lgb_model, name='lgb-train-model'),
+    path('lgb-model/metrics/', lgb_model_views.get_model_metrics, name='lgb-model-metrics'),
+    path('lgb-model/predict/', lgb_model_views.predict_with_model, name='lgb-model-predict'),
+    path('lgb-model/predict-all/', lgb_model_views.predict_all_metrics, name='lgb-model-predict-all'),
+    
+    path('lstm-model/train/', lgb_model_views.train_lstm_model_api, name='lstm-train-model'),
+    
+    path('pytorch-model/train/', lgb_model_views.train_pytorch_model, name='pytorch-train-model'),
+    
+    path('advanced-model/train/', lgb_model_views.train_advanced_model, name='advanced-train-model'),
 ]
 
 # 将 router 的自动路由追加到 urlpatterns（不会包含 'api/' 前缀）

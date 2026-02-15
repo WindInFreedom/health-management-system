@@ -96,16 +96,13 @@
       <el-card class="chart-card">
         <template #header>
           <div class="chart-header">
-            <h3>体重趋势与预测</h3>
+            <h3>体重趋势</h3>
             <div class="chart-controls">
               <el-select v-model="weightPeriod" @change="updateWeightChart" size="small">
                 <el-option label="最近7天" value="7" />
                 <el-option label="最近30天" value="30" />
                 <el-option label="最近90天" value="90" />
               </el-select>
-              <el-button @click="togglePrediction('weight')" size="small" type="primary">
-                {{ showWeightPrediction ? '隐藏预测' : '显示预测' }}
-              </el-button>
             </div>
           </div>
         </template>
@@ -116,16 +113,13 @@
       <el-card class="chart-card">
         <template #header>
           <div class="chart-header">
-            <h3>血压趋势与预测</h3>
+            <h3>血压趋势</h3>
             <div class="chart-controls">
               <el-select v-model="pressurePeriod" @change="updatePressureChart" size="small">
                 <el-option label="最近7天" value="7" />
                 <el-option label="最近30天" value="30" />
                 <el-option label="最近90天" value="90" />
               </el-select>
-              <el-button @click="togglePrediction('pressure')" size="small" type="primary">
-                {{ showPressurePrediction ? '隐藏预测' : '显示预测' }}
-              </el-button>
             </div>
           </div>
         </template>
@@ -136,16 +130,13 @@
       <el-card class="chart-card">
         <template #header>
           <div class="chart-header">
-            <h3>心率趋势与预测</h3>
+            <h3>心率趋势</h3>
             <div class="chart-controls">
               <el-select v-model="heartRatePeriod" @change="updateHeartRateChart" size="small">
                 <el-option label="最近7天" value="7" />
                 <el-option label="最近30天" value="30" />
                 <el-option label="最近90天" value="90" />
               </el-select>
-              <el-button @click="togglePrediction('heartRate')" size="small" type="primary">
-                {{ showHeartRatePrediction ? '隐藏预测' : '显示预测' }}
-              </el-button>
             </div>
           </div>
         </template>
@@ -156,16 +147,13 @@
       <el-card class="chart-card">
         <template #header>
           <div class="chart-header">
-            <h3>血糖趋势与预测</h3>
+            <h3>血糖趋势</h3>
             <div class="chart-controls">
               <el-select v-model="glucosePeriod" @change="updateGlucoseChart" size="small">
                 <el-option label="最近7天" value="7" />
                 <el-option label="最近30天" value="30" />
                 <el-option label="最近90天" value="90" />
               </el-select>
-              <el-button @click="togglePrediction('glucose')" size="small" type="primary">
-                {{ showGlucosePrediction ? '隐藏预测' : '显示预测' }}
-              </el-button>
             </div>
           </div>
         </template>
@@ -232,19 +220,12 @@ const username = ref('用户')
 const stats = ref({})
 const recommendations = ref([])
 const healthRisks = ref([])
-const predictions = ref({})
 
 // Chart periods
 const weightPeriod = ref('30')
 const pressurePeriod = ref('30')
 const heartRatePeriod = ref('30')
 const glucosePeriod = ref('30')
-
-// Prediction visibility
-const showWeightPrediction = ref(false)
-const showPressurePrediction = ref(false)
-const showHeartRatePrediction = ref(false)
-const showGlucosePrediction = ref(false)
 
 // Normalize DRF list response - handle both raw arrays and paginated responses
 
@@ -297,17 +278,6 @@ const fetchRecommendations = async () => {
   }
 }
 
-const fetchPredictions = async () => {
-  try {
-    const response = await api.get('/measurements/gru-model/predict-all/', {
-      params: { days: 7 }
-    })
-    predictions.value = response.data
-  } catch (err) {
-    console.error('获取预测数据失败:', err)
-  }
-}
-
 const initWeightChart = () => {
   if (!weightChartRef.value) return
   weightChart = echarts.init(weightChartRef.value)
@@ -315,67 +285,52 @@ const initWeightChart = () => {
 }
 
 const updateWeightChart = async () => {
-  if (!weightChart) return
+        if (!weightChart) return
 
-  try {
-    const res = await api.get('/measurements/my-measurements/', {
-      params: {
-        page_size: weightPeriod.value,
-        ordering: 'measured_at'
-      }
-    })
+        try {
+            const res = await api.get('/measurements/', {
+                params: {
+                    page_size: weightPeriod.value,
+                    ordering: 'measured_at'
+                }
+            })
 
-    // Normalize, filter missing measured_at, and sort ascending by time
-    const data = normalizeListResponse(res.data)
-      .filter(item => item?.measured_at)
-      .sort((a, b) => new Date(a.measured_at) - new Date(b.measured_at))
+            // Normalize, filter missing measured_at, and sort ascending by time
+            const data = normalizeListResponse(res.data)
+                .filter(item => item?.measured_at)
+                .sort((a, b) => new Date(a.measured_at) - new Date(b.measured_at))
 
-    const dates = data.map(item => formatDate(item.measured_at).split(' ')[0])
-    const weights = data.map(item => {
-      const val = item.weight_kg
-      return val !== null && val !== undefined ? Number(val) : null
-    })
+            const dates = data.map(item => formatDate(item.measured_at).split(' ')[0])
+            const weights = data.map(item => {
+                const val = item.weight_kg
+                return val !== null && val !== undefined ? Number(val) : null
+            })
 
-    const series = [{
-      name: '实际体重',
-      data: weights,
-      type: 'line',
-      smooth: true,
-      itemStyle: { color: '#409EFF' },
-      areaStyle: { opacity: 0.3 }
-    }]
+            const series = [{
+                name: '实际体重',
+                data: weights,
+                type: 'line',
+                smooth: true,
+                itemStyle: { color: '#409EFF' },
+                areaStyle: { opacity: 0.3 }
+            }]
 
-    // Add prediction if enabled
-    if (showWeightPrediction.value && predictions.value.weight) {
-      const predDates = predictions.value.dates || []
-      const predWeights = predictions.value.weight.predicted || []
+            const option = {
+                tooltip: { trigger: 'axis' },
+                legend: { data: ['实际体重'] },
+                xAxis: {
+                    type: 'category',
+                    data: dates
+                },
+                yAxis: { type: 'value', name: '体重 (kg)' },
+                series
+            }
 
-      series.push({
-        name: '预测体重',
-        data: [...Array(weights.length - 1).fill(null), weights[weights.length - 1], ...predWeights],
-        type: 'line',
-        smooth: true,
-        itemStyle: { color: '#F56C6C' },
-        lineStyle: { type: 'dashed' }
-      })
+            weightChart.setOption(option)
+        } catch (err) {
+            console.error('获取体重数据失败:', err)
+        }
     }
-
-    const option = {
-      tooltip: { trigger: 'axis' },
-      legend: { data: ['实际体重', '预测体重'] },
-      xAxis: {
-        type: 'category',
-        data: [...dates, ...(predictions.value.dates || [])]
-      },
-      yAxis: { type: 'value', name: '体重 (kg)' },
-      series
-    }
-
-    weightChart.setOption(option)
-  } catch (err) {
-    console.error('获取体重数据失败:', err)
-  }
-}
 
 const initPressureChart = () => {
   if (!pressureChartRef.value) return
@@ -384,89 +339,64 @@ const initPressureChart = () => {
 }
 
 const updatePressureChart = async () => {
-  if (!pressureChart) return
+        if (!pressureChart) return
 
-  try {
-    const res = await api.get('/measurements/my-measurements/', {
-      params: {
-        page_size: pressurePeriod.value,
-        ordering: 'measured_at'
-      }
-    })
+        try {
+            const res = await api.get('/measurements/', {
+                params: {
+                    page_size: pressurePeriod.value,
+                    ordering: 'measured_at'
+                }
+            })
 
-    // Normalize, filter missing measured_at, and sort ascending by time
-    const data = normalizeListResponse(res.data)
-      .filter(item => item?.measured_at)
-      .sort((a, b) => new Date(a.measured_at) - new Date(b.measured_at))
+            // Normalize, filter missing measured_at, and sort ascending by time
+            const data = normalizeListResponse(res.data)
+                .filter(item => item?.measured_at)
+                .sort((a, b) => new Date(a.measured_at) - new Date(b.measured_at))
 
-    const dates = data.map(item => formatDate(item.measured_at).split(' ')[0])
-    const systolic = data.map(item => {
-      const val = item.systolic
-      return val !== null && val !== undefined ? Number(val) : null
-    })
-    const diastolic = data.map(item => {
-      const val = item.diastolic
-      return val !== null && val !== undefined ? Number(val) : null
-    })
+            const dates = data.map(item => formatDate(item.measured_at).split(' ')[0])
+            const systolic = data.map(item => {
+                const val = item.systolic
+                return val !== null && val !== undefined ? Number(val) : null
+            })
+            const diastolic = data.map(item => {
+                const val = item.diastolic
+                return val !== null && val !== undefined ? Number(val) : null
+            })
 
-    const series = [
-      {
-        name: '收缩压',
-        data: systolic,
-        type: 'line',
-        smooth: true,
-        itemStyle: { color: '#F56C6C' }
-      },
-      {
-        name: '舒张压',
-        data: diastolic,
-        type: 'line',
-        smooth: true,
-        itemStyle: { color: '#67C23A' }
-      }
-    ]
+            const series = [
+                {
+                    name: '收缩压',
+                    data: systolic,
+                    type: 'line',
+                    smooth: true,
+                    itemStyle: { color: '#F56C6C' }
+                },
+                {
+                    name: '舒张压',
+                    data: diastolic,
+                    type: 'line',
+                    smooth: true,
+                    itemStyle: { color: '#67C23A' }
+                }
+            ]
 
-    // Add prediction if enabled
-    if (showPressurePrediction.value && predictions.value.blood_pressure) {
-      const predDates = predictions.value.dates || []
-      const predSystolic = predictions.value.blood_pressure.predicted.systolic || []
-      const predDiastolic = predictions.value.blood_pressure.predicted.diastolic || []
+            const option = {
+                tooltip: { trigger: 'axis' },
+                legend: { data: ['收缩压', '舒张压'] },
+                xAxis: {
+                    type: 'category',
+                    data: dates
+                },
+                yAxis: { type: 'value', name: '血压 (mmHg)' },
+                series
+            }
 
-      series.push({
-        name: '预测收缩压',
-        data: [...Array(systolic.length - 1).fill(null), systolic[systolic.length - 1], ...predSystolic],
-        type: 'line',
-        smooth: true,
-        itemStyle: { color: '#F56C6C' },
-        lineStyle: { type: 'dashed' }
-      })
-
-      series.push({
-        name: '预测舒张压',
-        data: [...Array(diastolic.length - 1).fill(null), diastolic[diastolic.length - 1], ...predDiastolic],
-        type: 'line',
-        smooth: true,
-        itemStyle: { color: '#67C23A' },
-        lineStyle: { type: 'dashed' }
-      })
+            pressureChart.setOption(option)
+        } catch (err) {
+            console.error('血压图表错误:', err)
+        }
     }
-
-    const option = {
-      tooltip: { trigger: 'axis' },
-      legend: { data: ['收缩压', '舒张压', '预测收缩压', '预测舒张压'] },
-      xAxis: {
-        type: 'category',
-        data: [...dates, ...(predictions.value.dates || [])]
-      },
-      yAxis: { type: 'value', name: '血压 (mmHg)' },
-      series
-    }
-
-    pressureChart.setOption(option)
-  } catch (err) {
-    console.error('血压图表错误:', err)
-  }
-}
 
 const initHeartRateChart = () => {
   if (!heartRateChartRef.value) return
@@ -475,66 +405,51 @@ const initHeartRateChart = () => {
 }
 
 const updateHeartRateChart = async () => {
-  if (!heartRateChart) return
+        if (!heartRateChart) return
 
-  try {
-    const res = await api.get('/measurements/my-measurements/', {
-      params: {
-        page_size: heartRatePeriod.value,
-        ordering: 'measured_at'
-      }
-    })
+        try {
+            const res = await api.get('/measurements/', {
+                params: {
+                    page_size: heartRatePeriod.value,
+                    ordering: 'measured_at'
+                }
+            })
 
-    // Normalize, filter missing measured_at, and sort ascending by time
-    const data = normalizeListResponse(res.data)
-      .filter(item => item?.measured_at)
-      .sort((a, b) => new Date(a.measured_at) - new Date(b.measured_at))
+            // Normalize, filter missing measured_at, and sort ascending by time
+            const data = normalizeListResponse(res.data)
+                .filter(item => item?.measured_at)
+                .sort((a, b) => new Date(a.measured_at) - new Date(b.measured_at))
 
-    const dates = data.map(item => formatDate(item.measured_at).split(' ')[0])
-    const heartRates = data.map(item => {
-      const val = item.heart_rate
-      return val !== null && val !== undefined ? Number(val) : null
-    })
+            const dates = data.map(item => formatDate(item.measured_at).split(' ')[0])
+            const heartRates = data.map(item => {
+                const val = item.heart_rate
+                return val !== null && val !== undefined ? Number(val) : null
+            })
 
-    const series = [{
-      name: '实际心率',
-      data: heartRates,
-      type: 'line',
-      smooth: true,
-      itemStyle: { color: '#E6A23C' }
-    }]
+            const series = [{
+                name: '实际心率',
+                data: heartRates,
+                type: 'line',
+                smooth: true,
+                itemStyle: { color: '#E6A23C' }
+            }]
 
-    // Add prediction if enabled
-    if (showHeartRatePrediction.value && predictions.value.heart_rate) {
-      const predDates = predictions.value.dates || []
-      const predHeartRates = predictions.value.heart_rate.predicted || []
+            const option = {
+                tooltip: { trigger: 'axis' },
+                legend: { data: ['实际心率'] },
+                xAxis: {
+                    type: 'category',
+                    data: dates
+                },
+                yAxis: { type: 'value', name: '心率 (bpm)' },
+                series
+            }
 
-      series.push({
-        name: '预测心率',
-        data: [...Array(heartRates.length - 1).fill(null), heartRates[heartRates.length - 1], ...predHeartRates],
-        type: 'line',
-        smooth: true,
-        itemStyle: { color: '#E6A23C' },
-        lineStyle: { type: 'dashed' }
-      })
+            heartRateChart.setOption(option)
+        } catch (err) {
+            console.error('心率图表错误:', err)
+        }
     }
-
-    const option = {
-      tooltip: { trigger: 'axis' },
-      legend: { data: ['实际心率', '预测心率'] },
-      xAxis: {
-        type: 'category',
-        data: [...dates, ...(predictions.value.dates || [])]
-      },
-      yAxis: { type: 'value', name: '心率 (bpm)' },
-      series
-    }
-
-    heartRateChart.setOption(option)
-  } catch (err) {
-    console.error('心率图表错误:', err)
-  }
-}
 
 const initGlucoseChart = () => {
   if (!glucoseChartRef.value) return
@@ -543,92 +458,55 @@ const initGlucoseChart = () => {
 }
 
 const updateGlucoseChart = async () => {
-  if (!glucoseChart) return
+        if (!glucoseChart) return
 
-  try {
-    const res = await api.get('/measurements/my-measurements/', {
-      params: {
-        page_size: glucosePeriod.value,
-        ordering: 'measured_at'
-      }
-    })
+        try {
+            const res = await api.get('/measurements/', {
+                params: {
+                    page_size: glucosePeriod.value,
+                    ordering: 'measured_at'
+                }
+            })
 
-    // Normalize, filter missing measured_at, and sort ascending by time
-    const data = normalizeListResponse(res.data)
-      .filter(item => item?.measured_at)
-      .sort((a, b) => new Date(a.measured_at) - new Date(b.measured_at))
+            // Normalize, filter missing measured_at, and sort ascending by time
+            const data = normalizeListResponse(res.data)
+                .filter(item => item?.measured_at)
+                .sort((a, b) => new Date(a.measured_at) - new Date(b.measured_at))
 
-    const dates = data.map(item => formatDate(item.measured_at).split(' ')[0])
-    const glucose = data.map(item => {
-      const val = item.blood_glucose
-      return val !== null && val !== undefined ? Number(val) : null
-    })
+            const dates = data.map(item => formatDate(item.measured_at).split(' ')[0])
+            const glucose = data.map(item => {
+                const val = item.blood_glucose
+                return val !== null && val !== undefined ? Number(val) : null
+            })
 
-    const series = [{
-      name: '实际血糖',
-      data: glucose,
-      type: 'line',
-      smooth: true,
-      itemStyle: { color: '#909399' }
-    }]
+            const series = [{
+                name: '实际血糖',
+                data: glucose,
+                type: 'line',
+                smooth: true,
+                itemStyle: { color: '#909399' }
+            }]
 
-    // Add prediction if enabled
-    if (showGlucosePrediction.value && predictions.value.blood_glucose) {
-      const predDates = predictions.value.dates || []
-      const predGlucose = predictions.value.blood_glucose.predicted || []
+            const option = {
+                tooltip: { trigger: 'axis' },
+                legend: { data: ['实际血糖'] },
+                xAxis: {
+                    type: 'category',
+                    data: dates
+                },
+                yAxis: { type: 'value', name: '血糖 (mmol/L)' },
+                series
+            }
 
-      series.push({
-        name: '预测血糖',
-        data: [...Array(glucose.length - 1).fill(null), glucose[glucose.length - 1], ...predGlucose],
-        type: 'line',
-        smooth: true,
-        itemStyle: { color: '#909399' },
-        lineStyle: { type: 'dashed' }
-      })
+            glucoseChart.setOption(option)
+        } catch (err) {
+            console.error('血糖图表错误:', err)
+        }
     }
-
-    const option = {
-      tooltip: { trigger: 'axis' },
-      legend: { data: ['实际血糖', '预测血糖'] },
-      xAxis: {
-        type: 'category',
-        data: [...dates, ...(predictions.value.dates || [])]
-      },
-      yAxis: { type: 'value', name: '血糖 (mmol/L)' },
-      series
-    }
-
-    glucoseChart.setOption(option)
-  } catch (err) {
-    console.error('血糖图表错误:', err)
-  }
-}
-
-const togglePrediction = (type) => {
-  switch (type) {
-    case 'weight':
-      showWeightPrediction.value = !showWeightPrediction.value
-      updateWeightChart()
-      break
-    case 'pressure':
-      showPressurePrediction.value = !showPressurePrediction.value
-      updatePressureChart()
-      break
-    case 'heartRate':
-      showHeartRatePrediction.value = !showHeartRatePrediction.value
-      updateHeartRateChart()
-      break
-    case 'glucose':
-      showGlucosePrediction.value = !showGlucosePrediction.value
-      updateGlucoseChart()
-      break
-  }
-}
 
 onMounted(async () => {
   await fetchHealthStats()
   await fetchRecommendations()
-  await fetchPredictions()
 
   await nextTick()
   initWeightChart()

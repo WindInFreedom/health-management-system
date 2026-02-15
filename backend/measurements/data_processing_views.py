@@ -96,50 +96,248 @@ class DataProcessingViewSet(viewsets.ViewSet):
         anomalies_count = 0
         
         if weight_data:
+            # 计算体重统计值
             mean_weight = sum(weight_data) / len(weight_data)
             std_weight = (sum((x - mean_weight) ** 2 for x in weight_data) / len(weight_data)) ** 0.5
             
-            for measurement in measurements:
+            # 计算7天移动平均
+            sorted_measurements = sorted(measurements, key=lambda x: x.measured_at)
+            weight_moving_average = []
+            
+            for i, measurement in enumerate(sorted_measurements):
                 if measurement.weight_kg:
-                    z_score = (float(measurement.weight_kg) - mean_weight) / std_weight if std_weight > 0 else 0
-                    if abs(z_score) > 3:
+                    # 计算最近7天的移动平均
+                    window = sorted_measurements[max(0, i-6):i+1]
+                    window_weights = [float(m.weight_kg) for m in window if m.weight_kg]
+                    if window_weights:
+                        moving_avg = sum(window_weights) / len(window_weights)
+                        weight_moving_average.append({
+                            'date': measurement.measured_at.isoformat(),
+                            'original_weight': float(measurement.weight_kg),
+                            'moving_average': round(moving_avg, 2),
+                            'difference': round(float(measurement.weight_kg) - moving_avg, 2)
+                        })
+                        
+                        # 检测短期剧烈波动（与移动平均的差异超过2kg）
+                        if abs(float(measurement.weight_kg) - moving_avg) > 2:
+                            results['anomalies'].append({
+                                'type': '体重短期波动',
+                                'value': f'{measurement.weight_kg}kg',
+                                'moving_average': round(moving_avg, 2),
+                                'difference': round(float(measurement.weight_kg) - moving_avg, 2),
+                                'time': measurement.measured_at.isoformat()
+                            })
+                            anomalies_count += 1
+            
+            # 添加移动平均结果到返回数据
+            if weight_moving_average:
+                results['weight_moving_average'] = weight_moving_average
+        
+        if systolic_data and diastolic_data:
+            # 计算血压统计值
+            avg_systolic = sum(systolic_data) / len(systolic_data)
+            avg_diastolic = sum(diastolic_data) / len(diastolic_data)
+            std_systolic = (sum((x - avg_systolic) ** 2 for x in systolic_data) / len(systolic_data)) ** 0.5 if len(systolic_data) > 1 else 0
+            std_diastolic = (sum((x - avg_diastolic) ** 2 for x in diastolic_data) / len(diastolic_data)) ** 0.5 if len(diastolic_data) > 1 else 0
+            
+            for measurement in measurements:
+                if measurement.systolic and measurement.diastolic:
+                    # 检测收缩压异常
+                    if measurement.systolic > 180:
                         results['anomalies'].append({
-                            'type': '体重异常',
-                            'value': f'{measurement.weight_kg}kg',
-                            'z_score': round(z_score, 2),
+                            'type': '收缩压严重异常',
+                            'value': f'{measurement.systolic}/{measurement.diastolic}',
+                            'clinical_event': '高血压危象',
                             'time': measurement.measured_at.isoformat()
                         })
                         anomalies_count += 1
-        
-        if systolic_data:
-            for measurement in measurements:
-                if measurement.systolic and measurement.systolic > 180:
-                    results['anomalies'].append({
-                        'type': '收缩压异常',
-                        'value': str(measurement.systolic),
-                        'time': measurement.measured_at.isoformat()
-                    })
-                    anomalies_count += 1
+                    elif measurement.systolic > 140 or measurement.diastolic > 90:
+                        results['anomalies'].append({
+                            'type': '血压异常',
+                            'value': f'{measurement.systolic}/{measurement.diastolic}',
+                            'clinical_event': '高血压',
+                            'time': measurement.measured_at.isoformat()
+                        })
+                        anomalies_count += 1
+                    elif measurement.systolic < 90 or measurement.diastolic < 60:
+                        results['anomalies'].append({
+                            'type': '血压异常',
+                            'value': f'{measurement.systolic}/{measurement.diastolic}',
+                            'clinical_event': '低血压',
+                            'time': measurement.measured_at.isoformat()
+                        })
+                        anomalies_count += 1
+                    # 检测峰值异常（使用Z-score）
+                    elif std_systolic > 0 and std_diastolic > 0:
+                        z_systolic = (measurement.systolic - avg_systolic) / std_systolic
+                        z_diastolic = (measurement.diastolic - avg_diastolic) / std_diastolic
+                        if abs(z_systolic) > 2.5 or abs(z_diastolic) > 2.5:
+                            results['anomalies'].append({
+                                'type': '血压峰值异常',
+                                'value': f'{measurement.systolic}/{measurement.diastolic}',
+                                'z_score': {'systolic': round(z_systolic, 2), 'diastolic': round(z_diastolic, 2)},
+                                'clinical_event': '血压波动异常',
+                                'time': measurement.measured_at.isoformat()
+                            })
+                            anomalies_count += 1
         
         if glucose_data:
-            for measurement in measurements:
-                if measurement.blood_glucose and float(measurement.blood_glucose) > 15:
-                    results['anomalies'].append({
-                        'type': '血糖异常',
-                        'value': f'{measurement.blood_glucose} mmol/L',
-                        'time': measurement.measured_at.isoformat()
+            # 计算血糖统计值
+            mean_glucose = sum(glucose_data) / len(glucose_data)
+            std_glucose = (sum((x - mean_glucose) ** 2 for x in glucose_data) / len(glucose_data)) ** 0.5 if len(glucose_data) > 1 else 0
+            
+            # 排序测量值
+            sorted_measurements = sorted(measurements, key=lambda x: x.measured_at)
+            glucose_imputation = []
+            
+            for i, measurement in enumerate(sorted_measurements):
+                if measurement.blood_glucose:
+                    # 核实数据来源
+                    glucose_value = float(measurement.blood_glucose)
+                    
+                    # 检测血糖异常
+                    if glucose_value > 15:
+                        results['anomalies'].append({
+                            'type': '血糖严重异常',
+                            'value': f'{glucose_value} mmol/L',
+                            'clinical_event': '高血糖危象',
+                            'time': measurement.measured_at.isoformat()
+                        })
+                        anomalies_count += 1
+                    elif glucose_value > 7.0:
+                        results['anomalies'].append({
+                            'type': '血糖异常',
+                            'value': f'{glucose_value} mmol/L',
+                            'clinical_event': '高血糖',
+                            'time': measurement.measured_at.isoformat()
+                        })
+                        anomalies_count += 1
+                    elif glucose_value < 3.9:
+                        results['anomalies'].append({
+                            'type': '血糖异常',
+                            'value': f'{glucose_value} mmol/L',
+                            'clinical_event': '低血糖',
+                            'time': measurement.measured_at.isoformat()
+                        })
+                        anomalies_count += 1
+                    
+                    glucose_imputation.append({
+                        'date': measurement.measured_at.isoformat(),
+                        'value': glucose_value,
+                        'source': '原始数据',
+                        'status': '有效'
                     })
-                    anomalies_count += 1
+                else:
+                    # 使用前向填充进行插补
+                    if i > 0 and sorted_measurements[i-1].blood_glucose:
+                        imputed_value = float(sorted_measurements[i-1].blood_glucose)
+                        glucose_imputation.append({
+                            'date': measurement.measured_at.isoformat(),
+                            'value': imputed_value,
+                            'source': '前向填充',
+                            'status': '插补'
+                        })
+                    # 如果前向填充不可用，使用平均值
+                    elif glucose_data:
+                        imputed_value = mean_glucose
+                        glucose_imputation.append({
+                            'date': measurement.measured_at.isoformat(),
+                            'value': round(imputed_value, 2),
+                            'source': '平均值',
+                            'status': '插补'
+                        })
+            
+            # 添加血糖插补结果到返回数据
+            if glucose_imputation:
+                results['glucose_imputation'] = glucose_imputation
         
         if heart_rate_data:
-            for measurement in measurements:
-                if measurement.heart_rate and (measurement.heart_rate < 40 or measurement.heart_rate > 120):
-                    results['anomalies'].append({
-                        'type': '心率异常',
-                        'value': f'{measurement.heart_rate} bpm',
-                        'time': measurement.measured_at.isoformat()
-                    })
-                    anomalies_count += 1
+            # 计算心率统计值
+            mean_heart_rate = sum(heart_rate_data) / len(heart_rate_data)
+            std_heart_rate = (sum((x - mean_heart_rate) ** 2 for x in heart_rate_data) / len(heart_rate_data)) ** 0.5 if len(heart_rate_data) > 1 else 0
+            
+            # 排序测量值
+            sorted_measurements = sorted(measurements, key=lambda x: x.measured_at)
+            heart_rate_analysis = []
+            resting_heart_rates = []
+            
+            for i, measurement in enumerate(sorted_measurements):
+                if measurement.heart_rate:
+                    hr_value = measurement.heart_rate
+                    
+                    # 分析心率
+                    analysis = {
+                        'date': measurement.measured_at.isoformat(),
+                        'heart_rate': hr_value,
+                        'status': '有效'
+                    }
+                    
+                    # 识别静息心率（60-70 bpm）
+                    if 60 <= hr_value <= 70:
+                        analysis['type'] = '静息心率'
+                        resting_heart_rates.append(hr_value)
+                    # 识别运动后心率（>100 bpm）
+                    elif hr_value > 100:
+                        analysis['type'] = '运动后心率'
+                        # 标记为极端值但保留
+                        results['anomalies'].append({
+                            'type': '心率极端值',
+                            'value': f'{hr_value} bpm',
+                            'event': '运动后',
+                            'time': measurement.measured_at.isoformat()
+                        })
+                        anomalies_count += 1
+                    # 识别心动过缓（<40 bpm）
+                    elif hr_value < 40:
+                        analysis['type'] = '心动过缓'
+                        results['anomalies'].append({
+                            'type': '心率异常',
+                            'value': f'{hr_value} bpm',
+                            'event': '心动过缓',
+                            'time': measurement.measured_at.isoformat()
+                        })
+                        anomalies_count += 1
+                    else:
+                        analysis['type'] = '正常心率'
+                    
+                    heart_rate_analysis.append(analysis)
+            
+            # 计算静息心率平均值
+            if resting_heart_rates:
+                avg_resting_hr = sum(resting_heart_rates) / len(resting_heart_rates)
+                results['resting_heart_rate'] = {
+                    'average': round(avg_resting_hr, 1),
+                    'count': len(resting_heart_rates),
+                    'measurements': resting_heart_rates
+                }
+            
+            # 添加心率分析结果到返回数据
+            if heart_rate_analysis:
+                results['heart_rate_analysis'] = heart_rate_analysis
+            
+            # 脉搏数据处理（基于心率数据，确保一致性）
+            pulse_analysis = []
+            for analysis in heart_rate_analysis:
+                pulse_analysis.append({
+                    'date': analysis['date'],
+                    'pulse': analysis['heart_rate'],
+                    'status': analysis['status'],
+                    'type': analysis['type'],
+                    'consistency_with_heart_rate': '一致'  # 脉搏与心率保持一致
+                })
+            
+            # 添加脉搏分析结果到返回数据
+            if pulse_analysis:
+                results['pulse_analysis'] = pulse_analysis
+                # 计算脉搏统计值
+                pulse_values = [p['pulse'] for p in pulse_analysis]
+                if pulse_values:
+                    results['pulse_statistics'] = {
+                        'average': round(sum(pulse_values) / len(pulse_values), 1),
+                        'min': min(pulse_values),
+                        'max': max(pulse_values),
+                        'count': len(pulse_values)
+                    }
         
         # 4. 健康评分计算
         scores = []

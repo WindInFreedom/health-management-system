@@ -1,10 +1,200 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>健康管理系统</title>
+    <style>
+      :root {
+        /* 深蓝色主题颜色 */
+        --primary-color: #1e40af;
+        --primary-light: #3b82f6;
+        --primary-dark: #1e3a8a;
+        --secondary-color: #6366f1;
+        --background-color: #f8fafc;
+        --card-background: #ffffff;
+        --text-primary: #1e293b;
+        --text-secondary: #64748b;
+        --border-color: #e2e8f0;
+        --success-color: #10b981;
+        --warning-color: #f59e0b;
+        --error-color: #ef4444;
+        --info-color: #3b82f6;
+      }
+
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        background-color: var(--background-color);
+        color: var(--text-primary);
+      }
+
+      /* 覆盖Element Plus主题 */
+      .el-button--primary {
+        --el-button-bg-color: var(--primary-color) !important;
+        --el-button-border-color: var(--primary-color) !important;
+        --el-button-hover-bg-color: var(--primary-light) !important;
+        --el-button-hover-border-color: var(--primary-light) !important;
+      }
+
+      .el-card {
+        --el-card-bg-color: var(--card-background) !important;
+        --el-card-border-color: var(--border-color) !important;
+      }
+
+      .el-menu {
+        --el-menu-bg-color: var(--card-background) !important;
+        --el-menu-border-color: var(--border-color) !important;
+      }
+
+      .el-menu-item.is-active {
+        --el-menu-item-bg-color: var(--primary-light) !important;
+        --el-menu-item-text-color: #ffffff !important;
+      }
+
+      .el-input__wrapper {
+        --el-input-bg-color: var(--card-background) !important;
+        --el-input-border-color: var(--border-color) !important;
+      }
+
+      /* 湛蓝色背景效果 */
+      body {
+        margin: 0;
+        padding: 0;
+        min-height: 100vh;
+        background-color: #0056b3;
+        color: #333333 !important;
+      }
+
+      #app {
+        min-height: 100vh;
+        position: relative;
+        z-index: 1;
+        background: transparent;
+      }
+
+      /* 全局卡片样式 */
+      .el-card {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+        border-radius: 8px !important;
+        background: #ffffff !important;
+        border: 1px solid #e0e0e0 !important;
+      }
+
+      /* 全局标题样式 */
+      h1, h2, h3, h4, h5, h6 {
+        color: #0056b3 !important;
+        font-weight: 600 !important;
+      }
+
+      /* 链接样式 */
+      a {
+        color: #0056b3 !important;
+        text-decoration: none !important;
+      }
+
+      a:hover {
+        color: #004085 !important;
+        text-decoration: underline !important;
+      }
+
+      /* 全局输入框样式 */
+      .el-input__inner {
+        background: #ffffff !important;
+        border: 1px solid #dcdfe6 !important;
+        color: #333333 !important;
+      }
+
+      .el-input__inner::placeholder {
+        color: #909399 !important;
+      }
+
+      /* 全局按钮样式 */
+      .el-button {
+        border-radius: 8px !important;
+      }
+
+      /* 全局表格样式 */
+      .el-table {
+        background: #ffffff !important;
+        border: 1px solid #ebeef5 !important;
+      }
+
+      .el-table__row {
+        background: #ffffff !important;
+      }
+
+      .el-table__cell {
+        color: #333333 !important;
+        border-bottom: 1px solid #ebeef5 !important;
+      }
+
+      /* 侧边栏样式 */
+      .el-menu {
+        background: #0056b3 !important;
+        border-right: 1px solid rgba(255, 255, 255, 0.2) !important;
+      }
+
+      .el-menu-item {
+        color: rgba(255, 255, 255, 0.8) !important;
+      }
+
+      .el-menu-item:hover {
+        background: rgba(255, 255, 255, 0.2) !important;
+        color: #ffffff !important;
+      }
+
+      .el-menu-item.is-active {
+        background: #007bff !important;
+        color: #ffffff !important;
+      }
+
+      /* 头部栏样式 */
+      .header-bar {
+        background: #ffffff !important;
+        border-bottom: 1px solid #e0e0e0 !important;
+      }
+
+      /* 主内容区域样式 */
+      .main-content {
+        background: #f8f9fa !important;
+        margin: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+      }
+
+      .content-area {
+        background: #ffffff !important;
+        border-radius: 8px;
+        padding: 20px;
+        margin: 20px;
+      }
+
+      /* 按钮样式 */
+      .el-button--primary {
+        background-color: #0056b3 !important;
+        border-color: #0056b3 !important;
+      }
+
+      .el-button--primary:hover {
+        background-color: #004085 !important;
+        border-color: #003366 !important;
+      }
+
+      .el-button--default {
+        background-color: #ffffff !important;
+        border-color: #dcdfe6 !important;
+        color: #606266 !important;
+      }
+
+      .el-button--default:hover {
+        background-color: #ecf5ff !important;
+        border-color: #c6e2ff !important;
+        color: #409eff !important;
+      }
+    </style>
   </head>
   <body>
     <div id="app"></div>
