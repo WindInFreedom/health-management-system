@@ -26,7 +26,23 @@ statsmodels==0.14.1
 # MySQL database driver
 pymysql==1.1.0
 
-# PyTorch for GRU model training
+# Deep Learning Libraries
 torch==2.10.0
+tensorflow>=2.13.0
 
+# PyHealth for medical data generation
+# pyhealth>=1.1.3  # Optional - we use custom generator
+
+# FastAPI for microservices
+fastapi>=0.104.0
+uvicorn>=0.24.0
+pydantic>=2.0.0
+
+# AI Services
+openai>=1.0.0  # For DeepSeek API
+
+# Advanced ML
+scikit-learn>=1.3.0
+shap>=0.42.0  # Explainability analysis
+joblib>=1.3.0
 

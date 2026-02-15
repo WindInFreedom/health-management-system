@@ -1,0 +1,11 @@
+﻿user_id,username,full_name,gender,age,height_cm,blood_type,has_hypertension,has_diabetes
+1,user01,王超明,M,32,178.4,A,False,False
+2,user02,孙敏婷,F,24,157.6,B,False,False
+3,user03,杨涛磊,M,76,179.8,O,False,False
+4,user04,周雪婷,F,39,154.7,B,False,False
+5,user05,徐静秀,F,43,165.4,B,False,True
+6,user06,胡倩婷,F,72,155.1,AB,False,False
+7,user07,罗慧丽,F,58,161.0,A,False,False
+8,user08,张红敏,F,29,170.5,O,False,False
+9,user09,何伟鹏,M,77,184.5,B,False,False
+10,user10,高倩雪,F,78,157.8,O,False,False
