@@ -15,6 +15,7 @@ import PersonalProfile from '../views/PersonalProfile.vue'
 import MedicationLogs from '../views/MedicationLogs.vue'
 import SleepLogs from '../views/SleepLogs.vue'
 import MoodLogs from '../views/MoodLogs.vue'
+import EnhancedPrediction from '../views/EnhancedPrediction.vue'
 import { useAuthStore } from '../stores/auth.js'
 
 const routes = [
@@ -52,6 +53,7 @@ const routes = [
       { path: 'medications', name: 'medications', component: MedicationLogs },
       { path: 'sleep-logs', name: 'sleep-logs', component: SleepLogs },
       { path: 'mood-logs', name: 'mood-logs', component: MoodLogs },
+      { path: 'enhanced-prediction', name: 'enhanced-prediction', component: EnhancedPrediction },
     ]
   },
 
