@@ -68,7 +68,7 @@ class SleepLogSerializer(serializers.ModelSerializer):
     class Meta:
         model = SleepLog
         fields = [
-            'id', 'user', 'start_time', 'end_time', 'duration_minutes',
+            'id', 'user', 'sleep_date', 'start_time', 'end_time', 'duration_minutes',
             'duration_hours', 'quality_rating', 'notes', 'created_at', 'updated_at'
         ]
         read_only_fields = ['user', 'duration_minutes', 'created_at', 'updated_at']
@@ -91,7 +91,8 @@ class MoodLogSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = MoodLog
-        fields = ['id', 'user', 'log_date', 'mood_rating', 'notes', 'created_at', 'updated_at']
+        fields = ['id', 'user', 'log_date', 'mood_rating', 'mood_description', 'notes', 'created_at', 'updated_at']
+        read_only_fields = ['user', 'created_at', 'updated_at']
     
     def get_mood_description(self, obj):
         """根据评分返回情绪描述"""
