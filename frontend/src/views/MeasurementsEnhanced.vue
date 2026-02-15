@@ -9,6 +9,8 @@ import { useAuthStore } from '../stores/auth'
 const authStore = useAuthStore()
 
 const API_BASE = 'http://127.0.0.1:8000/api'
+const FASTAPI_BASE = import.meta.env.VITE_FASTAPI_BASE_URL || 'http://localhost:8001'
+const DEFAULT_MODEL_TYPE = 'lstm'  // Default prediction model type
 
 // UI/状态
 const loading = ref(false)
@@ -124,10 +126,21 @@ async function loadData() {
 async function loadPrediction() {
   console.log('loadPrediction called, showPrediction:', showPrediction.value, 'predictionHorizon:', predictionHorizon.value)
   if (!showPrediction.value) return
+  
+  // Check if user is authenticated
+  if (!authStore.user?.id) {
+    ElMessage.warning('请先登录以使用预测功能')
+    showPrediction.value = false
+    return
+  }
+  
   try {
-    const { data } = await api.post('/lgb-model/predict/', {
+    const fastApiUrl = `${FASTAPI_BASE}/api/v2/predict`
+    const { data } = await api.post(fastApiUrl, {
+      user_id: authStore.user.id,
       metric: selectedMetric.value,
-      days: predictionHorizon.value
+      days: predictionHorizon.value,
+      model_type: DEFAULT_MODEL_TYPE
     })
     
     console.log('Prediction API response:', data)
@@ -149,9 +162,9 @@ async function loadPrediction() {
     predictionData.value = {
       dates: predictionDates,
       values: data.predictions,
-      lowerBound: data.lower_bound || null,
-      upperBound: data.upper_bound || null,
-      historical: data.historical || null
+      lowerBound: data.confidence_interval?.lower || null,
+      upperBound: data.confidence_interval?.upper || null,
+      historical: data.historical_backtest || null
     }
     
     console.log('predictionData set:', predictionData.value)
